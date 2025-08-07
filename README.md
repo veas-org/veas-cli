@@ -12,7 +12,7 @@ A powerful command-line interface that implements the [Veas Protocol](https://gi
 
 ## 🎯 Why Veas CLI?
 
-Modern developers work across multiple tools and platforms - documentation in Notion, code in GitHub, tasks in Jira, and AI assistants like Claude for development. Veas CLI unifies these tools through a standardized protocol, enabling:
+Modern developers need seamless integration between their knowledge base and AI assistants. Veas CLI provides this through the standardized Veas Protocol, enabling:
 
 - **Universal Access**: One CLI to interact with all protocol-compatible tools
 - **AI-Native Integration**: Built-in MCP server for Claude, GPT, and other AI assistants
@@ -61,13 +61,14 @@ Modern developers work across multiple tools and platforms - documentation in No
                        │
                 Connects to
                        │
-    ┌──────────────────┼──────────────────┐
-    │                  │                  │
-    ▼                  ▼                  ▼
-┌────────┐      ┌──────────┐      ┌──────────┐
-│ Notion │      │  GitHub  │      │   Veas   │
-│  API   │      │   API    │      │  Cloud   │
-└────────┘      └──────────┘      └──────────┘
+                       │
+                       ▼
+                ┌──────────────┐
+                │  Veas Cloud  │
+                │     API      │
+                └──────────────┘
+                       
+         Future: Notion, GitHub, Jira, etc.
 ```
 
 ## 🚀 Quick Start
@@ -183,7 +184,7 @@ veas mcp test
 
 # List all available projects
 veas mcp list-projects
-# Shows projects from all connected providers
+# Shows projects from Veas Cloud
 
 # Show Claude Desktop configuration
 veas mcp configure
@@ -230,10 +231,6 @@ MCP_DEBUG=false
 # OAuth Configuration (for auth login)
 VEAS_CLIENT_ID=your-oauth-client-id
 VEAS_REDIRECT_URI=http://localhost:3456/callback
-
-# Provider Configuration
-NOTION_API_KEY=secret_xxxxxxxxxxxxx
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
 ```
 
 ### Configuration File (veas.yaml)
@@ -307,10 +304,11 @@ Veas CLI is built on top of the [@veas/protocol](https://www.npmjs.com/package/@
 
 ### How It Works
 
-1. **Protocol Provider**: The CLI connects to various platforms (Notion, GitHub, Veas Cloud) through protocol providers
-2. **Unified Interface**: All providers implement the same protocol interface
+1. **Protocol Provider**: The CLI connects to Veas Cloud through the protocol provider
+2. **Unified Interface**: Standardized protocol interface for consistent behavior
 3. **MCP Adapter**: The protocol is exposed to AI assistants via MCP
 4. **Tool Generation**: Protocol methods are automatically converted to MCP tools
+5. **Future Extensibility**: The protocol design allows for future integration with other platforms like Notion, GitHub, Jira, etc.
 
 ### Supported Protocol Domains
 
@@ -326,27 +324,17 @@ Veas CLI is built on top of the [@veas/protocol](https://www.npmjs.com/package/@
   - Sprints: Time-boxed iterations
   - Teams: User and permission management
 
-### Adding Custom Providers
+### Future Provider Support
 
-```typescript
-// custom-provider.ts
-import { ProtocolProvider, KnowledgeBaseProtocol } from '@veas/protocol';
+The Veas Protocol is designed to support multiple providers. While currently only Veas Cloud is supported, the architecture allows for future integration with:
 
-class MyCustomProvider implements ProtocolProvider {
-  name = 'custom';
-  version = '1.0.0';
-  
-  knowledgeBase: KnowledgeBaseProtocol = {
-    async listArticles(params) {
-      // Your implementation
-    },
-    // ... other protocol methods
-  };
-}
+- **Notion** - For teams using Notion as their knowledge base
+- **Confluence** - For enterprise documentation
+- **GitHub** - For code-centric documentation
+- **Obsidian** - For local markdown-based knowledge management
+- **Custom Providers** - Any platform that implements the protocol
 
-// Register with CLI
-veas.registerProvider(new MyCustomProvider());
-```
+This extensible design ensures that as your needs grow, the CLI can adapt to support new platforms without breaking existing integrations.
 
 ## 🧑‍💻 Development
 
@@ -405,9 +393,7 @@ veas-cli/
 │   │   ├── cache.ts      # Caching logic
 │   │   └── config.ts     # Configuration parser
 │   ├── providers/        # Protocol providers
-│   │   ├── veas.ts       # Veas Cloud provider
-│   │   ├── notion.ts     # Notion provider
-│   │   └── github.ts     # GitHub provider
+│   │   └── veas.ts       # Veas Cloud provider
 │   └── cli.ts           # CLI entry point
 ├── tests/               # Test files
 ├── bin/                 # Executable scripts
