@@ -1,0 +1,28 @@
+# Source files
+src/**/*.test.ts
+src/**/*.spec.ts
+
+# Config files
+.gitignore
+.eslintrc.*
+vitest.config.*
+tsconfig.json
+
+# GitHub
+.github/
+
+# Development files
+*.log
+*.tsbuildinfo
+coverage/
+test-results/
+
+# Documentation source
+docs/
+
+# Environment files
+.env*
+
+# IDE
+.vscode/
+.idea/

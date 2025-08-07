@@ -1,0 +1,17 @@
+{
+  "name": "veas-mcp",
+  "description": "Veas MCP Server for project management and development",
+  "version": "0.1.0",
+  "transport": {
+    "type": "stdio"
+  },
+  "environment": {
+    "VEAS_API_URL": "${VEAS_API_URL:-http://localhost:3000}",
+    "NODE_ENV": "${NODE_ENV:-development}"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  }
+}
