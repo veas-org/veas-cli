@@ -147,7 +147,7 @@ export class MCPClient {
         };
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       
       if (result.error) {
         return {

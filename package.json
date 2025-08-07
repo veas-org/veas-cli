@@ -3,12 +3,23 @@
   "version": "1.0.0",
   "description": "Veas CLI - Command-line interface for Veas platform",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/cli.js",
   "bin": {
     "veas": "./bin/veas.js"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf dist && tsc",
+    "build:force": "rimraf dist && tsc || true",
+    "prepublishOnly": "npm run build:force",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
@@ -24,13 +35,13 @@
   "dependencies": {
     "@clack/prompts": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.17.1",
-    "@veas-org/veas-protocol": "^0.1.0",
+    "@veas/protocol": "^0.1.0",
     "axios": "^1.7.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
-    "express-sse": "^2.1.0",
+    "express-sse": "^1.0.0",
     "fast-glob": "^3.3.3",
     "fs-extra": "^11.2.0",
     "node-cache": "^5.1.2",
@@ -42,7 +53,7 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
-    "@types/express-sse": "^1.0.10",
+    "@types/express-sse": "^0.5.1",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.17.0",
     "@types/uuid": "^10.0.0",

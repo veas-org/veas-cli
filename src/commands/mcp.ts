@@ -163,3 +163,23 @@ export async function testMCPConnection(): Promise<void> {
     process.exit(1);
   }
 }
+
+export const test = testMCPConnection;
+
+export async function listProjects(): Promise<void> {
+  try {
+    const authManager = AuthManager.getInstance();
+    const isAuthenticated = await authManager.isAuthenticated();
+    
+    if (!isAuthenticated) {
+      logger.error('Not authenticated. Please run "veas login" first.');
+      process.exit(1);
+    }
+
+    logger.info(pc.cyan('Available projects:'));
+    logger.info(pc.yellow('Project listing not yet implemented'));
+  } catch (error) {
+    logger.error('Error listing projects:', error);
+    process.exit(1);
+  }
+}

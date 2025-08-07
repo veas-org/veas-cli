@@ -85,7 +85,7 @@ export class DirectMCPServer {
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       
       if (result.error) {
         throw new Error(`MCP error: ${result.error.message}`);

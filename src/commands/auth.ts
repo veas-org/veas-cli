@@ -239,3 +239,19 @@ export async function status() {
     process.exit(1);
   }
 }
+
+export async function refresh() {
+  const authManager = AuthManager.getInstance();
+  const s = spinner();
+  
+  s.start('Refreshing authentication token...');
+  
+  try {
+    await authManager.refreshToken();
+    s.stop(pc.green('Token refreshed successfully'));
+  } catch (error) {
+    s.stop(pc.red('Failed to refresh token'));
+    logger.error((error as Error).message);
+    process.exit(1);
+  }
+}

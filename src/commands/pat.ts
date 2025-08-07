@@ -148,3 +148,8 @@ export async function listPATs(): Promise<void> {
     process.exit(1);
   }
 }
+
+export async function revokePAT(_tokenId: string): Promise<void> {
+  logger.info(pc.yellow('PAT revocation not yet implemented'));
+  logger.info(pc.yellow('Feature coming soon'));
+}

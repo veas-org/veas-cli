@@ -1,6 +1,6 @@
 import { spinner } from '@clack/prompts';
 import pc from 'picocolors';
-import { DirectMCPServer } from '../mcp/direct-server.js';
+import { DirectMCPServer } from '@veas/protocol';
 import { AuthManager } from '../auth/auth-manager.js';
 import * as dotenv from 'dotenv';
 import { logger } from '../utils/logger.js';

@@ -8,7 +8,7 @@ import type { VeasConfig, VeasConfigFolder } from '../config/veas-config-parser.
 import { logger } from '../utils/logger.js'
 import { confirm, text, spinner } from '@clack/prompts'
 import pc from 'picocolors'
-import { MCPClient } from '../mcp/client.js'
+import { MCPClient } from '@veas/protocol'
 
 interface DocsSyncOptions {
   watch?: boolean

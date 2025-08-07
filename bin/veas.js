@@ -24,4 +24,4 @@ for (const envPath of envPaths) {
 }
 
 // Import and run the CLI
-import '../dist/index.js';
+import '../dist/cli.js';

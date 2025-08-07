@@ -98,7 +98,7 @@ export class MCPServer {
         });
         
         if (response.ok) {
-          const result = await response.json();
+          const result: any = await response.json();
           if (result.result?.tools) {
             mcpTools = result.result.tools;
             logger.debug(`Received ${mcpTools.length} tools via simple MCP endpoint`);
@@ -226,7 +226,7 @@ export class MCPServer {
         throw new Error(`Tool execution failed: ${error}`);
       }
 
-      const result = await response.json();
+      const result: any = await response.json();
       
       if (result?.error) {
         logger.debug(`Tool error: ${JSON.stringify(result.error)}`);
