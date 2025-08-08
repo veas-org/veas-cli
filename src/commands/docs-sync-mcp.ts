@@ -8,7 +8,7 @@ import type { VeasConfig, VeasConfigFolder } from '../config/veas-config-parser.
 import { logger } from '../utils/logger.js'
 import { confirm, text, spinner } from '@clack/prompts'
 import pc from 'picocolors'
-import { MCPClient } from '@veas/protocol'
+import { MCPClient } from '../mcp/mcp-client.js'
 
 interface DocsSyncOptions {
   watch?: boolean
@@ -86,18 +86,14 @@ class DocsSyncer {
     this.session = session
     
     // Initialize MCP client
-    const mcpUrl = process.env.VEAS_MCP_URL || 'https://veas.app/api/mcp-simple'
-    this.mcpClient = new MCPClient({
-      endpoint: mcpUrl,
-      headers: {
-        'Authorization': `Bearer ${this.session.token}`
-      }
-    })
+    this.mcpClient = MCPClient.getInstance()
   }
 
   async sync(): Promise<SyncResult> {
-    const s = spinner()
-    s.start('Initializing docs sync...')
+    const isInteractive = process.stdout.isTTY
+    const s = isInteractive ? spinner() : null
+    if (s) s.start('Initializing docs sync...')
+    else logger.info('Initializing docs sync...')
 
     try {
       // Ensure publication exists
@@ -107,19 +103,23 @@ class DocsSyncer {
       await this.ensureFolders()
       
       // Collect local files
-      s.message('Scanning local files...')
+      if (s) s.message('Scanning local files...')
+      else logger.info('Scanning local files...')
       await this.collectLocalFiles()
       
       // Fetch remote articles
-      s.message('Fetching remote articles...')
+      if (s) s.message('Fetching remote articles...')
+      else logger.info('Fetching remote articles...')
       await this.fetchRemoteArticles()
       
       // Plan sync operations
-      s.message('Planning sync operations...')
+      if (s) s.message('Planning sync operations...')
+      else logger.info('Planning sync operations...')
       const operations = await this.planOperations()
       
       if (this.options.dryRun) {
-        s.stop('Dry run complete')
+        if (s) s.stop('Dry run complete')
+        else logger.info('Dry run complete')
         await this.displayDryRunSummary(operations)
         return {
           created: operations.create.length,
@@ -131,10 +131,12 @@ class DocsSyncer {
       }
       
       // Execute sync
-      s.message('Syncing articles...')
+      if (s) s.message('Syncing articles...')
+      else logger.info('Syncing articles...')
       const result = await this.executeSync(operations)
       
-      s.stop(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
+      if (s) s.stop(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
+      else logger.info(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
       
       if (result.errors.length > 0) {
         logger.warn('Sync completed with errors:')
@@ -143,7 +145,8 @@ class DocsSyncer {
       
       return result
     } catch (error) {
-      s.stop('Sync failed')
+      if (s) s.stop('Sync failed')
+      else logger.error('Sync failed')
       throw error
     }
   }
@@ -195,6 +198,10 @@ class DocsSyncer {
   private async ensurePublication(): Promise<void> {
     // Check if publication name is provided
     if (!this.config.publication?.name) {
+      if (!process.stdout.isTTY) {
+        throw new Error('Publication name is required. Please provide it in the configuration file or run in interactive mode.')
+      }
+      
       const name = await text({
         message: 'Enter publication name:',
         placeholder: 'My Project Documentation',
@@ -215,14 +222,19 @@ class DocsSyncer {
     }
 
     // List existing publications using MCP
-    const result = await this.mcpClient.callTool('mcp__veas__mcp-articles_list_publications', {
+    const response = await this.mcpClient.callTool('mcp-articles_list_publications', {
       filters: {
         name_contains: this.config.publication.name
       },
       limit: 10
     })
 
-    const publications = result.publications || []
+    // Handle MCP response format
+    let responseData = response.data
+    if (responseData?.content?.[0]?.data) {
+      responseData = responseData.content[0].data
+    }
+    const publications = response.success ? (responseData?.publications || []) : []
     const exactMatch = publications.find((p: any) => p.name === this.config.publication!.name)
 
     if (exactMatch) {
@@ -256,7 +268,7 @@ class DocsSyncer {
     const slug = this.config.publication.slug || this.slugify(this.config.publication.name)
 
     // Create publication using MCP
-    const newPublication = await this.mcpClient.callTool('mcp__veas__mcp-articles_create_publication', {
+    const createResponse = await this.mcpClient.callTool('mcp-articles_create_publication', {
       name: this.config.publication.name,
       description: this.config.publication.description || null,
       slug,
@@ -265,18 +277,44 @@ class DocsSyncer {
       is_public: true
     })
 
-    this.publicationId = newPublication.id
-    logger.info(`Created new publication: ${this.config.publication.name}`)
+    if (!createResponse.success) {
+      throw new Error(`Failed to create publication: ${createResponse.error}`)
+    }
+    
+    // The response data might be wrapped in content array (MCP response format)
+    let publicationData = createResponse.data
+    
+    // Handle MCP response format
+    if (publicationData?.content?.[0]?.data) {
+      publicationData = publicationData.content[0].data
+    }
+    
+    // Extract publication ID from various possible structures
+    this.publicationId = publicationData?.id || 
+                        publicationData?.publication?.id || 
+                        publicationData?.data?.publication?.id
+    
+    if (!this.publicationId) {
+      logger.error('Failed to get publication ID from response:', JSON.stringify(createResponse.data, null, 2))
+      throw new Error('Failed to get publication ID from created publication')
+    }
+    
+    logger.info(`Created new publication: ${this.config.publication.name} (ID: ${this.publicationId})`)
   }
 
   private async ensureFolders(): Promise<void> {
     // List existing folders using MCP
-    const result = await this.mcpClient.callTool('mcp__veas__list_folders', {
+    const response = await this.mcpClient.callTool('list_folders', {
       publication_id: this.publicationId,
       include_article_counts: false
     })
 
-    const folders = result.folders || []
+    // Handle MCP response format
+    let responseData = response.data
+    if (responseData?.content?.[0]?.data) {
+      responseData = responseData.content[0].data
+    }
+    const folders = response.success ? (responseData?.folders || []) : []
     const existingFolders = new Map<string, any>()
     for (const folder of folders) {
       existingFolders.set(folder.name, folder)
@@ -314,13 +352,27 @@ class DocsSyncer {
         logger.debug(`Using existing folder: ${remoteName}`)
       } else {
         try {
-          const newFolder = await this.mcpClient.callTool('mcp__veas__create_folder', {
+          const folderResponse = await this.mcpClient.callTool('create_folder', {
             publication_id: this.publicationId!,
             name: remoteName,
             description: folderConfig.description || null
           })
 
-          this.folderIds.set(remoteName, newFolder.id)
+          if (folderResponse.success) {
+            // Handle MCP response format
+            let folderData = folderResponse.data
+            if (folderData?.content?.[0]?.data) {
+              folderData = folderData.content[0].data
+            }
+            const folderId = folderData?.id || folderData?.folder?.id
+            if (folderId) {
+              this.folderIds.set(remoteName, folderId)
+            } else {
+              throw new Error(`Failed to get folder ID from response`)
+            }
+          } else {
+            throw new Error(`Failed to create folder: ${folderResponse.error}`)
+          }
           logger.info(`Created folder: ${remoteName}`)
         } catch (error: any) {
           logger.warn(`Failed to create folder "${remoteName}": ${error.message}`)
@@ -417,14 +469,19 @@ class DocsSyncer {
   }
 
   private async fetchRemoteArticles(): Promise<void> {
-    const result = await this.mcpClient.callTool('mcp__veas__mcp-articles_list_articles', {
+    const response = await this.mcpClient.callTool('mcp-articles_list_articles', {
       filters: {
         publication_id: this.publicationId
       },
       limit: 1000 // TODO: Handle pagination
     })
 
-    const articles = result.articles || []
+    // Handle MCP response format
+    let responseData = response.data
+    if (responseData?.content?.[0]?.data) {
+      responseData = responseData.content[0].data
+    }
+    const articles = response.success ? (responseData?.articles || []) : []
 
     for (const article of articles) {
       // Store article by slug or title for matching
@@ -553,7 +610,7 @@ class DocsSyncer {
           ? this.folderIds.get(file.remoteFolder)
           : undefined
 
-        const article = await this.mcpClient.callTool('mcp__veas__mcp-articles_create_article', {
+        const createResponse = await this.mcpClient.callTool('mcp-articles_create_article', {
           title: file.metadata.title,
           content: file.content,
           status: file.metadata.status || 'published',
@@ -561,12 +618,24 @@ class DocsSyncer {
           folder_id: folderId || null
         })
 
-        result.created++
-        logger.debug(`Created: ${file.metadata.title}`)
-        
-        // Add tags if any
-        if (file.metadata.tags && file.metadata.tags.length > 0 && article) {
-          await this.addTagsToArticle(article.id, file.metadata.tags)
+        if (createResponse.success) {
+          // Handle MCP response format
+          let articleData = createResponse.data
+          if (articleData?.content?.[0]?.data) {
+            articleData = articleData.content[0].data
+          }
+          
+          const articleId = articleData?.id || articleData?.article?.id
+          
+          result.created++
+          logger.debug(`Created: ${file.metadata.title}`)
+          
+          // Add tags if any
+          if (file.metadata.tags && file.metadata.tags.length > 0 && articleId) {
+            await this.addTagsToArticle(articleId, file.metadata.tags)
+          }
+        } else {
+          throw new Error(`Failed to create article: ${createResponse.error}`)
         }
       } catch (error: any) {
         result.errors.push(`Failed to create ${file.relativePath}: ${error.message}`)
@@ -589,13 +658,17 @@ class DocsSyncer {
           }
         }
 
-        await this.mcpClient.callTool('mcp__veas__mcp-articles_update_article', {
+        const updateResponse = await this.mcpClient.callTool('mcp-articles_update_article', {
           article_id: article.id,
           ...updateData
         })
 
-        result.updated++
-        logger.debug(`Updated: ${file.metadata.title}`)
+        if (updateResponse.success) {
+          result.updated++
+          logger.debug(`Updated: ${file.metadata.title}`)
+        } else {
+          throw new Error(`Failed to update article: ${updateResponse.error}`)
+        }
       } catch (error: any) {
         result.errors.push(`Error updating ${file.relativePath}: ${error.message}`)
       }
@@ -604,13 +677,17 @@ class DocsSyncer {
     // Archive articles
     for (const article of operations.archive) {
       try {
-        await this.mcpClient.callTool('mcp__veas__mcp-articles_update_article', {
+        const archiveResponse = await this.mcpClient.callTool('mcp-articles_update_article', {
           article_id: article.id,
           status: 'archived'
         })
 
-        result.archived++
-        logger.debug(`Archived: ${article.title}`)
+        if (archiveResponse.success) {
+          result.archived++
+          logger.debug(`Archived: ${article.title}`)
+        } else {
+          throw new Error(`Failed to archive article: ${archiveResponse.error}`)
+        }
       } catch (error: any) {
         result.errors.push(`Error archiving ${article.title}: ${error.message}`)
       }
@@ -624,15 +701,15 @@ class DocsSyncer {
       // First create tags if they don't exist
       for (const tagName of tagNames) {
         try {
-          const existingTags = await this.mcpClient.callTool('mcp__veas__search_tags', {
+          const searchResponse = await this.mcpClient.callTool('search_tags', {
             search_term: tagName,
             filters: {
               publication_id: this.publicationId
             }
           })
 
-          if (!existingTags.tags || existingTags.tags.length === 0) {
-            await this.mcpClient.callTool('mcp__veas__create_tag', {
+          if (searchResponse.success && (!searchResponse.data?.tags || searchResponse.data.tags.length === 0)) {
+            await this.mcpClient.callTool('create_tag', {
               data: {
                 name: tagName,
                 publication_id: this.publicationId
@@ -647,21 +724,23 @@ class DocsSyncer {
       // Get all tag IDs
       const tagIds: string[] = []
       for (const tagName of tagNames) {
-        const tags = await this.mcpClient.callTool('mcp__veas__list_tags', {
+        const listResponse = await this.mcpClient.callTool('list_tags', {
           filters: {
             name_contains: tagName,
             publication_id: this.publicationId
           }
         })
-        const tag = tags.tags?.find((t: any) => t.name === tagName)
-        if (tag) {
-          tagIds.push(tag.id)
+        if (listResponse.success && listResponse.data?.tags) {
+          const tag = listResponse.data.tags.find((t: any) => t.name === tagName)
+          if (tag) {
+            tagIds.push(tag.id)
+          }
         }
       }
 
       // Add tags to article
       if (tagIds.length > 0) {
-        await this.mcpClient.callTool('mcp__veas__mcp-articles_add_article_tags', {
+        await this.mcpClient.callTool('mcp-articles_add_article_tags', {
           article_id: articleId,
           tag_ids: tagIds
         })

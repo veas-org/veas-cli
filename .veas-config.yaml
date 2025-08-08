@@ -1,0 +1,27 @@
+publication:
+  name: "Test Documentation"
+  description: "Test documentation for Veas"
+  slug: "test-docs"
+
+sync:
+  include:
+    - "**/*.md"
+    - "**/*.mdx"
+  exclude:
+    - "node_modules/**"
+    - ".git/**"
+    - "dist/**"
+  
+  folders:
+    - local: "docs"
+      remote: "Documentation"
+  
+  behavior:
+    missing_local: "warn"
+    missing_remote: "create"
+    update_strategy: "modified"
+  
+  metadata:
+    frontmatter: true
+    defaults:
+      status: "published"
