@@ -194,6 +194,84 @@ class DocsSyncer {
   }
 
   private async ensurePublication(): Promise<void> {
+    // Resolve organization slug to ID if provided
+    if (this.config.publication?.organization_slug && !this.config.publication?.organization_id) {
+      logger.debug(`Resolving organization slug: ${this.config.publication.organization_slug}`)
+      
+      // Try to find organization by slug from user's organizations
+      const userResponse = await this.mcpClient.callTool('mcp-project-manager_get_user_info', {})
+      
+      if (userResponse.success) {
+        let userData = userResponse.data
+        // Handle MCP response format
+        if (userData?.content?.[0]?.data) {
+          userData = userData.content[0].data
+        }
+        
+        // Look for organization with matching slug
+        if (userData?.organizations?.length > 0) {
+          const org = userData.organizations.find((o: any) => 
+            o.slug === this.config.publication!.organization_slug ||
+            o.organization_slug === this.config.publication!.organization_slug
+          )
+          
+          if (org) {
+            this.config.publication.organization_id = org.id || org.organization_id
+            logger.info(`Resolved organization slug "${this.config.publication.organization_slug}" to ID: ${this.config.publication.organization_id}`)
+          } else {
+            logger.warn(`Organization with slug "${this.config.publication.organization_slug}" not found`)
+          }
+        }
+      }
+    }
+    
+    // If still no organization_id, try to get it from existing publications
+    if (!this.config.publication?.organization_id || this.config.publication.organization_id === 'anonymous') {
+      logger.debug('Attempting to infer organization from existing publications...')
+      
+      const listResponse = await this.mcpClient.callTool('mcp-articles_list_publications', {
+        limit: 5
+      })
+      
+      if (listResponse.success) {
+        let responseData = listResponse.data
+        if (responseData?.content?.[0]?.data) {
+          responseData = responseData.content[0].data
+        }
+        
+        const publications = responseData?.publications || []
+        
+        // Find the most common organization_id (excluding null and 'anonymous')
+        const orgCounts = new Map<string, number>()
+        for (const pub of publications) {
+          if (pub.organization_id && pub.organization_id !== 'anonymous') {
+            orgCounts.set(pub.organization_id, (orgCounts.get(pub.organization_id) || 0) + 1)
+          }
+        }
+        
+        // Get the most common organization_id
+        let mostCommonOrgId: string | undefined
+        let maxCount = 0
+        for (const [orgId, count] of orgCounts) {
+          if (count > maxCount) {
+            mostCommonOrgId = orgId
+            maxCount = count
+          }
+        }
+        
+        if (mostCommonOrgId) {
+          if (!this.config.publication) {
+            this.config.publication = { name: '' } // Will be set later
+          }
+          this.config.publication.organization_id = mostCommonOrgId
+          logger.info(`Using organization_id from existing publications: ${mostCommonOrgId}`)
+        } else {
+          // No organization found - publications will be personal
+          logger.info('No organization found - creating personal publication')
+        }
+      }
+    }
+    
     // Check if publication name is provided
     if (!this.config.publication?.name) {
       if (!process.stdout.isTTY) {
@@ -265,15 +343,40 @@ class DocsSyncer {
     // Generate slug if not provided
     const slug = this.config.publication.slug || this.slugify(this.config.publication.name)
 
-    // Create publication using MCP
-    const createResponse = await this.mcpClient.callTool('mcp-articles_create_publication', {
+    // Create publication using MCP  
+    // Don't include organization_id at all if not provided to avoid server-side defaults
+    const createParams: any = {
       name: this.config.publication.name,
-      description: this.config.publication.description || null,
       slug,
-      organization_id: this.config.publication.organization_id,
       is_active: true,
       is_public: true
-    })
+    }
+    
+    // Only add description if provided
+    if (this.config.publication.description) {
+      createParams.description = this.config.publication.description
+    }
+    
+    // Only include organization_id if it's a valid UUID (not 'anonymous' or other invalid values)
+    if (this.config.publication.organization_id) {
+      const orgId = this.config.publication.organization_id
+      
+      // Check if it's a valid UUID
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)
+      
+      if (isValidUUID && orgId !== 'anonymous') {
+        createParams.organization_id = orgId
+        logger.debug(`Creating publication with organization_id: ${orgId}`)
+      } else if (orgId === 'anonymous' || !isValidUUID) {
+        logger.warn(`Invalid organization_id "${orgId}" - creating personal publication without organization`)
+        // Don't include organization_id in params to avoid server error
+      }
+    } else {
+      logger.debug(`Creating personal publication (no organization_id)`)
+    }
+    
+    logger.debug(`Create params:`, JSON.stringify(createParams, null, 2))
+    const createResponse = await this.mcpClient.callTool('mcp-articles_create_publication', createParams)
 
     if (!createResponse.success) {
       throw new Error(`Failed to create publication: ${createResponse.error}`)
