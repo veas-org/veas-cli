@@ -1,14 +1,14 @@
-import * as fs from 'fs/promises'
-import * as path from 'path'
+import { confirm, spinner, text } from '@clack/prompts'
 import * as crypto from 'crypto'
 import glob from 'fast-glob'
-import { AuthManager } from '../auth/auth-manager.js'
-import { VeasConfigParser } from '../config/veas-config-parser.js'
-import type { VeasConfig, VeasConfigFolder } from '../config/veas-config-parser.js'
-import { logger } from '../utils/logger.js'
-import { confirm, text, spinner } from '@clack/prompts'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import pc from 'picocolors'
+import { AuthManager } from '../auth/auth-manager.js'
+import type { VeasConfig, VeasConfigFolder } from '../config/veas-config-parser.js'
+import { VeasConfigParser } from '../config/veas-config-parser.js'
 import { MCPClient } from '../mcp/mcp-client.js'
+import { logger } from '../utils/logger.js'
 
 interface DocsSyncOptions {
   watch?: boolean
@@ -55,8 +55,8 @@ export async function docsSync(options: DocsSyncOptions) {
     const config = await configParser.load()
 
     // Initialize sync
-    const syncer = new DocsSyncer(config, configParser, options, session)
-    
+    const syncer = new DocsSyncer(config, configParser, options)
+
     if (options.watch) {
       await syncer.watch()
     } else {
@@ -72,19 +72,17 @@ class DocsSyncer {
   private config: VeasConfig
   private configParser: VeasConfigParser
   private options: DocsSyncOptions
-  private session: any
   private publicationId?: string
   private remoteArticles: Map<string, any> = new Map()
   private localFiles: Map<string, FileInfo> = new Map()
   private folderIds: Map<string, string> = new Map()
   private mcpClient: MCPClient
 
-  constructor(config: VeasConfig, configParser: VeasConfigParser, options: DocsSyncOptions, session: any) {
+  constructor(config: VeasConfig, configParser: VeasConfigParser, options: DocsSyncOptions) {
     this.config = config
     this.configParser = configParser
     this.options = options
-    this.session = session
-    
+
     // Initialize MCP client
     this.mcpClient = MCPClient.getInstance()
   }
@@ -98,25 +96,25 @@ class DocsSyncer {
     try {
       // Ensure publication exists
       await this.ensurePublication()
-      
+
       // Ensure folder structure
       await this.ensureFolders()
-      
+
       // Collect local files
       if (s) s.message('Scanning local files...')
       else logger.info('Scanning local files...')
       await this.collectLocalFiles()
-      
+
       // Fetch remote articles
       if (s) s.message('Fetching remote articles...')
       else logger.info('Fetching remote articles...')
       await this.fetchRemoteArticles()
-      
+
       // Plan sync operations
       if (s) s.message('Planning sync operations...')
       else logger.info('Planning sync operations...')
       const operations = await this.planOperations()
-      
+
       if (this.options.dryRun) {
         if (s) s.stop('Dry run complete')
         else logger.info('Dry run complete')
@@ -129,20 +127,20 @@ class DocsSyncer {
           errors: [],
         }
       }
-      
+
       // Execute sync
       if (s) s.message('Syncing articles...')
       else logger.info('Syncing articles...')
       const result = await this.executeSync(operations)
-      
+
       if (s) s.stop(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
       else logger.info(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
-      
+
       if (result.errors.length > 0) {
         logger.warn('Sync completed with errors:')
         result.errors.forEach(err => logger.error(`  - ${err}`))
       }
-      
+
       return result
     } catch (error) {
       if (s) s.stop('Sync failed')
@@ -153,15 +151,15 @@ class DocsSyncer {
 
   async watch(): Promise<void> {
     logger.info('Starting watch mode...')
-    
+
     // Initial sync
     await this.sync()
-    
+
     // Set up file watcher
     const chokidar = await import('chokidar')
     const roots = this.configParser.getSyncRoots()
     const watchPaths = roots.map(r => r.absolutePath)
-    
+
     const watcher = chokidar.watch(watchPaths, {
       ignored: this.config.sync.exclude || [],
       persistent: true,
@@ -170,7 +168,7 @@ class DocsSyncer {
         pollInterval: 100,
       },
     })
-    
+
     let syncTimeout: NodeJS.Timeout | null = null
     const scheduleSync = () => {
       if (syncTimeout) clearTimeout(syncTimeout)
@@ -179,14 +177,14 @@ class DocsSyncer {
         this.sync().catch(err => logger.error('Sync error:', err))
       }, this.config.sync.watch?.debounce || 1000)
     }
-    
+
     watcher
       .on('change', scheduleSync)
       .on('add', scheduleSync)
       .on('unlink', scheduleSync)
-    
+
     logger.info('Watching for changes... (Press Ctrl+C to stop)')
-    
+
     // Keep process alive
     process.on('SIGINT', () => {
       logger.info('Stopping watch mode...')
@@ -201,7 +199,7 @@ class DocsSyncer {
       if (!process.stdout.isTTY) {
         throw new Error('Publication name is required. Please provide it in the configuration file or run in interactive mode.')
       }
-      
+
       const name = await text({
         message: 'Enter publication name:',
         placeholder: 'My Project Documentation',
@@ -210,11 +208,11 @@ class DocsSyncer {
           return;
         },
       })
-      
+
       if (typeof name === 'symbol') {
         throw new Error('Publication name is required')
       }
-      
+
       this.config.publication = {
         ...this.config.publication,
         name: name as string,
@@ -245,16 +243,16 @@ class DocsSyncer {
 
     // Ask to create new publication (skip if in non-interactive mode)
     let shouldCreate = true
-    
+
     if (process.stdout.isTTY) {
       const confirmed = await confirm({
         message: `Publication "${this.config.publication.name}" not found. Create it?`,
       })
-      
+
       if (typeof confirmed === 'symbol') {
         throw new Error('Publication creation cancelled')
       }
-      
+
       shouldCreate = confirmed
 
       if (!shouldCreate) {
@@ -280,25 +278,25 @@ class DocsSyncer {
     if (!createResponse.success) {
       throw new Error(`Failed to create publication: ${createResponse.error}`)
     }
-    
+
     // The response data might be wrapped in content array (MCP response format)
     let publicationData = createResponse.data
-    
+
     // Handle MCP response format
     if (publicationData?.content?.[0]?.data) {
       publicationData = publicationData.content[0].data
     }
-    
+
     // Extract publication ID from various possible structures
-    this.publicationId = publicationData?.id || 
-                        publicationData?.publication?.id || 
+    this.publicationId = publicationData?.id ||
+                        publicationData?.publication?.id ||
                         publicationData?.data?.publication?.id
-    
+
     if (!this.publicationId) {
       logger.error('Failed to get publication ID from response:', JSON.stringify(createResponse.data, null, 2))
       throw new Error('Failed to get publication ID from created publication')
     }
-    
+
     logger.info(`Created new publication: ${this.config.publication.name} (ID: ${this.publicationId})`)
   }
 
@@ -322,7 +320,7 @@ class DocsSyncer {
 
     // Process folders from all roots
     const allFolders = new Map<string, VeasConfigFolder>()
-    
+
     // Collect all unique folders from all roots
     const roots = this.configParser.getSyncRoots()
     for (const { root } of roots) {
@@ -346,7 +344,7 @@ class DocsSyncer {
     // Create missing folders
     for (const [remoteName, folderConfig] of allFolders) {
       const existing = existingFolders.get(remoteName)
-      
+
       if (existing) {
         this.folderIds.set(remoteName, existing.id)
         logger.debug(`Using existing folder: ${remoteName}`)
@@ -384,11 +382,11 @@ class DocsSyncer {
 
   private async collectLocalFiles(): Promise<void> {
     const roots = this.configParser.getSyncRoots()
-    
+
     for (const { root, absolutePath } of roots) {
       const patterns = root.include || this.config.sync.include || ['**/*.md', '**/*.mdx']
       const excludePatterns = root.exclude || this.config.sync.exclude || []
-      
+
       const files = await glob(patterns, {
         cwd: absolutePath,
         absolute: true,
@@ -409,7 +407,7 @@ class DocsSyncer {
         const metadata = this.extractMetadata(content, relativePath)
         const remoteFolder = this.configParser.getRemoteFolder(filePath, absolutePath, root)
         const hash = this.hashContent(content)
-        
+
         // Create a unique key that includes the root path
         const uniqueKey = path.join(path.relative(process.cwd(), absolutePath), relativePath)
 
@@ -606,7 +604,7 @@ class DocsSyncer {
     // Create articles
     for (const file of operations.create) {
       try {
-        const folderId = file.remoteFolder 
+        const folderId = file.remoteFolder
           ? this.folderIds.get(file.remoteFolder)
           : undefined
 
@@ -624,12 +622,12 @@ class DocsSyncer {
           if (articleData?.content?.[0]?.data) {
             articleData = articleData.content[0].data
           }
-          
+
           const articleId = articleData?.id || articleData?.article?.id
-          
+
           result.created++
           logger.debug(`Created: ${file.metadata.title}`)
-          
+
           // Add tags if any
           if (file.metadata.tags && file.metadata.tags.length > 0 && articleId) {
             await this.addTagsToArticle(articleId, file.metadata.tags)
