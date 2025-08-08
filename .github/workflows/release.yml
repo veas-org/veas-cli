@@ -72,7 +72,7 @@ jobs:
             # Auto-detect from commit messages
             LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
             COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
-            
+
             if echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?!:"; then
               BUMP_TYPE="major"
             elif echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?:"; then
@@ -81,7 +81,7 @@ jobs:
               BUMP_TYPE="patch"
             fi
           fi
-          
+
           echo "bump_type=${BUMP_TYPE}" >> $GITHUB_OUTPUT
           echo "Detected version bump type: ${BUMP_TYPE}"
 
@@ -97,7 +97,7 @@ jobs:
         run: |
           VERSION="${{ steps.bump.outputs.new_version }}"
           DATE=$(date +"%Y-%m-%d")
-          
+
           # Create or update CHANGELOG.md
           if [ ! -f CHANGELOG.md ]; then
             echo "# Changelog" > CHANGELOG.md
@@ -105,12 +105,12 @@ jobs:
             echo "All notable changes to veas-cli will be documented in this file." >> CHANGELOG.md
             echo "" >> CHANGELOG.md
           fi
-          
+
           # Add new version entry
           TEMP_FILE=$(mktemp)
           echo "## [${VERSION}] - ${DATE}" > $TEMP_FILE
           echo "" >> $TEMP_FILE
-          
+
           # Get commit messages since last tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -z "$LAST_TAG" ]; then
@@ -118,13 +118,13 @@ jobs:
           else
             COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
           fi
-          
+
           # Categorize commits
           echo "### Changes" >> $TEMP_FILE
           echo "" >> $TEMP_FILE
           echo "$COMMITS" >> $TEMP_FILE
           echo "" >> $TEMP_FILE
-          
+
           # Prepend to existing changelog
           if [ -f CHANGELOG.md ]; then
             tail -n +2 CHANGELOG.md >> $TEMP_FILE
@@ -151,17 +151,17 @@ jobs:
           name: veas-cli v${{ steps.bump.outputs.new_version }}
           body: |
             ## 🚀 veas-cli v${{ steps.bump.outputs.new_version }}
-            
+
             ### Installation
             ```bash
-            npm install -g veas-cli
+            npm install -g veas
             # or
-            pnpm add -g veas-cli
+            pnpm add -g veas
             ```
-            
+
             ### What's Changed
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
-            
+
             ---
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.version.outputs.last_version }}...v${{ steps.bump.outputs.new_version }}
           draft: false
@@ -192,8 +192,8 @@ jobs:
       - name: Publish success notification
         if: success()
         run: |
-          echo "✅ Successfully published veas-cli@${{ steps.bump.outputs.new_version }} to NPM"
-          echo "📦 Package URL: https://www.npmjs.com/package/veas-cli"
+          echo "✅ Successfully published veas@${{ steps.bump.outputs.new_version }} to NPM"
+          echo "📦 Package URL: https://www.npmjs.com/package/veas"
           echo "🏷️ Git Tag: v${{ steps.bump.outputs.new_version }}"
           echo ""
           echo "Users can now install with:"
@@ -202,5 +202,5 @@ jobs:
       - name: Publish failure notification
         if: failure()
         run: |
-          echo "❌ Failed to publish veas-cli@${{ steps.bump.outputs.new_version }}"
+          echo "❌ Failed to publish veas@${{ steps.bump.outputs.new_version }}"
           echo "Please check the logs for more information"
