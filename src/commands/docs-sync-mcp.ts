@@ -87,7 +87,12 @@ class DocsSyncer {
     
     // Initialize MCP client
     const mcpUrl = process.env.VEAS_MCP_URL || 'http://localhost:3000/api/mcp-manual'
-    this.mcpClient = new MCPClient(mcpUrl, this.session.token)
+    this.mcpClient = new MCPClient({
+      endpoint: mcpUrl,
+      headers: {
+        'Authorization': `Bearer ${this.session.token}`
+      }
+    })
   }
 
   async sync(): Promise<SyncResult> {
@@ -210,7 +215,7 @@ class DocsSyncer {
     }
 
     // List existing publications using MCP
-    const result = await this.mcpClient.call('mcp__veas__mcp-articles_list_publications', {
+    const result = await this.mcpClient.callTool('mcp__veas__mcp-articles_list_publications', {
       filters: {
         name_contains: this.config.publication.name
       },
@@ -251,7 +256,7 @@ class DocsSyncer {
     const slug = this.config.publication.slug || this.slugify(this.config.publication.name)
 
     // Create publication using MCP
-    const newPublication = await this.mcpClient.call('mcp__veas__mcp-articles_create_publication', {
+    const newPublication = await this.mcpClient.callTool('mcp__veas__mcp-articles_create_publication', {
       name: this.config.publication.name,
       description: this.config.publication.description || null,
       slug,
@@ -266,7 +271,7 @@ class DocsSyncer {
 
   private async ensureFolders(): Promise<void> {
     // List existing folders using MCP
-    const result = await this.mcpClient.call('mcp__veas__list_folders', {
+    const result = await this.mcpClient.callTool('mcp__veas__list_folders', {
       publication_id: this.publicationId,
       include_article_counts: false
     })
@@ -309,7 +314,7 @@ class DocsSyncer {
         logger.debug(`Using existing folder: ${remoteName}`)
       } else {
         try {
-          const newFolder = await this.mcpClient.call('mcp__veas__create_folder', {
+          const newFolder = await this.mcpClient.callTool('mcp__veas__create_folder', {
             publication_id: this.publicationId!,
             name: remoteName,
             description: folderConfig.description || null
@@ -412,7 +417,7 @@ class DocsSyncer {
   }
 
   private async fetchRemoteArticles(): Promise<void> {
-    const result = await this.mcpClient.call('mcp__veas__mcp-articles_list_articles', {
+    const result = await this.mcpClient.callTool('mcp__veas__mcp-articles_list_articles', {
       filters: {
         publication_id: this.publicationId
       },
@@ -548,7 +553,7 @@ class DocsSyncer {
           ? this.folderIds.get(file.remoteFolder)
           : undefined
 
-        const article = await this.mcpClient.call('mcp__veas__mcp-articles_create_article', {
+        const article = await this.mcpClient.callTool('mcp__veas__mcp-articles_create_article', {
           title: file.metadata.title,
           content: file.content,
           status: file.metadata.status || 'published',
@@ -584,7 +589,7 @@ class DocsSyncer {
           }
         }
 
-        await this.mcpClient.call('mcp__veas__mcp-articles_update_article', {
+        await this.mcpClient.callTool('mcp__veas__mcp-articles_update_article', {
           article_id: article.id,
           ...updateData
         })
@@ -599,7 +604,7 @@ class DocsSyncer {
     // Archive articles
     for (const article of operations.archive) {
       try {
-        await this.mcpClient.call('mcp__veas__mcp-articles_update_article', {
+        await this.mcpClient.callTool('mcp__veas__mcp-articles_update_article', {
           article_id: article.id,
           status: 'archived'
         })
@@ -619,7 +624,7 @@ class DocsSyncer {
       // First create tags if they don't exist
       for (const tagName of tagNames) {
         try {
-          const existingTags = await this.mcpClient.call('mcp__veas__search_tags', {
+          const existingTags = await this.mcpClient.callTool('mcp__veas__search_tags', {
             search_term: tagName,
             filters: {
               publication_id: this.publicationId
@@ -627,7 +632,7 @@ class DocsSyncer {
           })
 
           if (!existingTags.tags || existingTags.tags.length === 0) {
-            await this.mcpClient.call('mcp__veas__create_tag', {
+            await this.mcpClient.callTool('mcp__veas__create_tag', {
               data: {
                 name: tagName,
                 publication_id: this.publicationId
@@ -642,7 +647,7 @@ class DocsSyncer {
       // Get all tag IDs
       const tagIds: string[] = []
       for (const tagName of tagNames) {
-        const tags = await this.mcpClient.call('mcp__veas__list_tags', {
+        const tags = await this.mcpClient.callTool('mcp__veas__list_tags', {
           filters: {
             name_contains: tagName,
             publication_id: this.publicationId
@@ -656,7 +661,7 @@ class DocsSyncer {
 
       // Add tags to article
       if (tagIds.length > 0) {
-        await this.mcpClient.call('mcp__veas__mcp-articles_add_article_tags', {
+        await this.mcpClient.callTool('mcp__veas__mcp-articles_add_article_tags', {
           article_id: articleId,
           tag_ids: tagIds
         })
