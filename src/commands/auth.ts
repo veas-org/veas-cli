@@ -60,8 +60,8 @@ async function loginWithWeb(authManager: AuthManager) {
       token_type: tokenResponse.token_type
     });
     
-    logger.debug('[Login] Calling loginWithDevice...');
-    const { user } = await authManager.loginWithDeviceCode();
+    logger.debug('[Login] Calling loginWithDevice with token response...');
+    const { user } = await authManager.loginWithDeviceCode(tokenResponse);
     
     logger.debug('[Login] Login successful!');
     const extendedUser = user as any;

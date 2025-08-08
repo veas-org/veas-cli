@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
+import { OAuthDeviceFlow } from './device-flow.js';
 
 export interface User {
   id: string;
@@ -141,69 +142,74 @@ export class AuthManager {
     }
   }
 
-  async loginWithDeviceCode(): Promise<{ user: User; token: string }> {
+  async loginWithDeviceCode(tokenResponse?: any): Promise<{ user: User; token: string }> {
     try {
-      // Initialize device code flow
-      const initResponse = await axios.post(
-        `${this.apiUrl}/api/cli/auth/device/init`,
-        {},
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'veas-cli/0.1.0'
-          }
-        }
-      );
+      // If no token response provided, perform the device flow
+      if (!tokenResponse) {
+        const deviceFlow = new OAuthDeviceFlow(this.apiUrl);
+        tokenResponse = await deviceFlow.authenticate();
+      }
 
-      const { device_code, user_code, verification_url, expires_in, interval } = initResponse.data;
-
-      // Show user the verification URL and code
-      console.log('\n🔐 Please visit: ' + verification_url);
-      console.log('📝 Enter code: ' + user_code);
-      console.log('\nWaiting for authorization...\n');
-
-      // Poll for authorization
-      const startTime = Date.now();
-      const expiryTime = startTime + (expires_in * 1000);
-
-      while (Date.now() < expiryTime) {
-        await new Promise(resolve => setTimeout(resolve, interval * 1000));
-
+      // Try to get user info from the token response or validate endpoint
+      let user: User;
+      
+      // Check if user info is included in the token response
+      if (tokenResponse.user) {
+        logger.debug('Using user info from token response:', tokenResponse.user);
+        user = tokenResponse.user;
+      } else {
+        logger.debug('No user info in token response, will try to fetch it');
+        // Try to validate the token and get user info
         try {
-          const pollResponse = await axios.post(
-            `${this.apiUrl}/api/cli/auth/device/poll`,
-            { device_code },
+          logger.debug('Attempting to validate token to get user info');
+          const validateResponse = await axios.post(
+            `${this.apiUrl}/api/cli/auth/validate-pat`,
+            {},
             {
               headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'veas-cli/0.1.0'
+                'Authorization': `Bearer ${tokenResponse.access_token}`,
+                'Content-Type': 'application/json'
               }
             }
           );
-
-          if (pollResponse.data.status === 'authorized') {
-            const { user, token, refreshToken } = pollResponse.data;
-
-            await this.saveSession({
-              user,
-              token,
-              refreshToken,
-              expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000)
-            });
-
-            logger.debug('Device flow login successful', { userId: user.id });
-            return { user, token };
+          user = validateResponse.data.user;
+          logger.debug('Got user info from validate endpoint');
+        } catch (validateError: any) {
+          // If validate endpoint doesn't exist, try alternate endpoints
+          logger.debug('Validate endpoint not available, trying /api/auth/me');
+          try {
+            const meResponse = await axios.get(
+              `${this.apiUrl}/api/auth/me`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${tokenResponse.access_token}`
+                }
+              }
+            );
+            user = meResponse.data;
+            logger.debug('Got user info from /api/auth/me');
+          } catch (meError: any) {
+            // Last resort: create a minimal user object
+            logger.warn('No user info endpoints available, using placeholder user');
+            user = {
+              id: 'device-auth-user',
+              email: 'user@device-auth',
+              name: 'Device Auth User'
+            };
           }
-        } catch (error: any) {
-          // Continue polling if it's a pending status
-          if (error.response?.status === 428) {
-            continue;
-          }
-          throw error;
         }
       }
 
-      throw new Error('Device authorization timeout');
+      // Save the session
+      await this.saveSession({
+        user,
+        token: tokenResponse.access_token,
+        refreshToken: tokenResponse.refresh_token,
+        expiresAt: Date.now() + (tokenResponse.expires_in ? tokenResponse.expires_in * 1000 : 7 * 24 * 60 * 60 * 1000)
+      });
+
+      logger.debug('Device flow login successful', { userId: user.id });
+      return { user, token: tokenResponse.access_token };
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message;

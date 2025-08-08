@@ -15,8 +15,9 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (prioritize .env.local over .env)
+dotenv.config({ path: '.env.local' });
+dotenv.config(); // Also load .env as fallback
 
 // Load package.json for version
 const __filename = fileURLToPath(import.meta.url);

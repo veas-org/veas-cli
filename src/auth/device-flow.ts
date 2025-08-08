@@ -21,6 +21,11 @@ export interface TokenResponse {
   expires_in?: number;
   refresh_token?: string;
   scope?: string;
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+  };
 }
 
 export class OAuthDeviceFlow {
@@ -82,8 +87,17 @@ export class OAuthDeviceFlow {
             has_access_token: !!tokenData.access_token,
             has_refresh_token: !!tokenData.refresh_token,
             token_type: tokenData.token_type,
-            scope: tokenData.scope
+            scope: tokenData.scope,
+            has_user: !!(tokenData as any).user,
+            user: (tokenData as any).user,
+            access_token_prefix: tokenData.access_token ? tokenData.access_token.substring(0, 10) + '...' : 'none'
           });
+          
+          // Ensure user is passed through
+          if ((tokenData as any).user) {
+            (tokenData as any).user = (tokenData as any).user;
+          }
+          
           return tokenData;
         }
 
@@ -144,12 +158,19 @@ export class OAuthDeviceFlow {
       s.stop();
 
       // Step 2: Show user code and open browser
-      // Replace localhost:3000 with veas.app in the verification URIs
       logger.debug('Original verification_uri:', deviceResponse.verification_uri);
       logger.debug('Original verification_uri_complete:', deviceResponse.verification_uri_complete);
       
-      const verificationUri = deviceResponse.verification_uri.replace('http://localhost:3000', 'https://veas.app');
-      const verificationUriComplete = deviceResponse.verification_uri_complete?.replace('http://localhost:3000', 'https://veas.app');
+      // For local development, replace veas.app with localhost:3000 in the verification URLs
+      let verificationUri = deviceResponse.verification_uri;
+      let verificationUriComplete = deviceResponse.verification_uri_complete;
+      
+      if (this.apiUrl.includes('localhost')) {
+        verificationUri = verificationUri.replace('https://veas.app', 'http://localhost:3000');
+        if (verificationUriComplete) {
+          verificationUriComplete = verificationUriComplete.replace('https://veas.app', 'http://localhost:3000');
+        }
+      }
       
       logger.debug('Replaced verification_uri:', verificationUri);
       logger.debug('Replaced verification_uri_complete:', verificationUriComplete);

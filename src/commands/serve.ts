@@ -5,7 +5,9 @@ import { AuthManager } from '../auth/auth-manager.js';
 import * as dotenv from 'dotenv';
 import { logger } from '../utils/logger.js';
 
-dotenv.config();
+// Load environment variables (prioritize .env.local over .env)
+dotenv.config({ path: '.env.local' });
+dotenv.config(); // Also load .env as fallback
 
 interface ServeOptions {
   port: string;

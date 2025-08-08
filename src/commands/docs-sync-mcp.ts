@@ -86,7 +86,7 @@ class DocsSyncer {
     this.session = session
     
     // Initialize MCP client
-    const mcpUrl = process.env.VEAS_MCP_URL || 'http://localhost:3000/api/mcp-manual'
+    const mcpUrl = process.env.VEAS_MCP_URL || 'https://veas.app/api/mcp-simple'
     this.mcpClient = new MCPClient({
       endpoint: mcpUrl,
       headers: {
