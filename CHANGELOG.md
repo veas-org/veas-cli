@@ -1,4 +1,10 @@
-## [1.0.4] - 2025-08-08
+## [1.0.5] - 2025-08-08
+
+### Changes
+
+- fix: update docs (d863a1c)
+- Merge branch 'main' of github.com:veas-org/veas-cli (5118b3c)
+
 
 ### Changes
 
