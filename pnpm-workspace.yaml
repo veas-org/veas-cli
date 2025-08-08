@@ -1,0 +1,2 @@
+overrides:
+  '@veas/protocol': link:../../../Library/pnpm/global/5/node_modules/@veas/protocol

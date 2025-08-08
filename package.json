@@ -21,6 +21,8 @@
     "build": "rimraf dist && tsc",
     "build:force": "rimraf dist && tsc || true",
     "prepublishOnly": "npm run build:force",
+    "dev:setup": "bash scripts/setup-local-dev.sh",
+    "dev:link": "npm run build:force && npm link && ln -sf $(which veas) $(dirname $(which veas))/veas-dev",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
@@ -43,7 +45,7 @@
   "dependencies": {
     "@clack/prompts": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.17.1",
-    "@veas/protocol": "^0.1.0",
+    "@veas/protocol": "^0.1.7",
     "axios": "^1.7.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",

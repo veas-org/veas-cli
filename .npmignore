@@ -16,6 +16,8 @@ tsconfig.json
 *.tsbuildinfo
 coverage/
 test-results/
+bin/veas-dev.js
+scripts/
 
 # Documentation source
 docs/
