@@ -1,4 +1,9 @@
-## [1.0.5] - 2025-08-08
+## [1.0.6] - 2025-08-10
+
+### Changes
+
+- fix: try to fix build (c0ca1ca)
+
 
 ### Changes
 
