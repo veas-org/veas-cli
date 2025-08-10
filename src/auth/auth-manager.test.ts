@@ -2,11 +2,21 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import axios from 'axios';
-import { AuthManager } from './auth-manager';
 
-// Mock modules
+// Mock modules before importing AuthManager
 vi.mock('axios');
 vi.mock('fs/promises');
+
+// Mock os module only for this test file
+vi.mock('os', () => ({
+  homedir: vi.fn(() => '/tmp/test-home'),
+  hostname: vi.fn(() => 'test-host'),
+  platform: vi.fn(() => 'darwin'),
+  arch: vi.fn(() => 'x64'),
+}));
+
+// Import after mocking
+import { AuthManager } from './auth-manager';
 
 describe('AuthManager', () => {
   let authManager: AuthManager;
@@ -69,7 +79,7 @@ describe('AuthManager', () => {
       expect(fs.writeFile).toHaveBeenCalledWith(
         expectedAuthFile,
         expect.any(String),
-        'utf8'
+        'utf-8'
       );
 
       expect(result).toEqual({
