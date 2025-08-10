@@ -38,7 +38,7 @@ src/test/e2e/
 
 2. Build the CLI:
    ```bash
-   pnpm build --filter @m9sh/veas-cli
+   pnpm build --filter @veas/veas-cli
    ```
 
 ### Test Commands

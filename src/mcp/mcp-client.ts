@@ -58,7 +58,7 @@ export class MCPClient {
           'X-MCP-Token': token,
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(30000), // 30 second timeout
+        signal: AbortSignal.timeout(30000) as any, // 30 second timeout
       });
 
       const responseText = await response.text();

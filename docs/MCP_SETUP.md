@@ -43,7 +43,7 @@ If you prefer manual configuration, add this to your Claude MCP configuration:
     "command": "node",
     "args": ["/absolute/path/to/veas-cli/bin/veas.js", "serve"],
     "env": {
-      "VEAS_API_URL": "http://localhost:3000"
+      "VEAS_API_URL": "https://veas.app"
     }
   }
 }

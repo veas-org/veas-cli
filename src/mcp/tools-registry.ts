@@ -37,7 +37,7 @@ export async function getMCPTools(tokenOrAuthToken?: string | AuthToken): Promis
         params: {},
         id: 'list-tools',
       }),
-      signal: controller.signal,
+      signal: controller.signal as any,
     });
     
     clearTimeout(timeout);

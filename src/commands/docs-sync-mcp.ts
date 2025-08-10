@@ -169,7 +169,7 @@ class DocsSyncer {
       },
     })
 
-    let syncTimeout: NodeJS.Timeout | null = null
+    let syncTimeout: ReturnType<typeof setTimeout> | null = null
     const scheduleSync = () => {
       if (syncTimeout) clearTimeout(syncTimeout)
       syncTimeout = setTimeout(() => {

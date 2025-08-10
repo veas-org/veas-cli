@@ -59,7 +59,7 @@ sync:
         - local: "getting-started"
           remote: "Getting Started"
           description: "Quick start guides"
-    
+
     - path: "./packages"
       include:
         - "*/README.md"
@@ -230,7 +230,7 @@ You can integrate docs sync into your CI/CD pipeline:
   env:
     VEAS_PAT: ${{ secrets.VEAS_PAT }}
   run: |
-    npm install -g @m9sh/veas-cli
+    npm install -g @veas/veas-cli
     veas docs-sync --force
 ```
 

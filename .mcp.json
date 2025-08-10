@@ -6,7 +6,7 @@
     "type": "stdio"
   },
   "environment": {
-    "VEAS_API_URL": "${VEAS_API_URL:-http://localhost:3000}",
+    "VEAS_API_URL": "${VEAS_API_URL:-https://veas.app}",
     "NODE_ENV": "${NODE_ENV:-development}"
   },
   "capabilities": {
