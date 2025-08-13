@@ -31,7 +31,7 @@ export class SSEClient extends EventEmitter {
       try {
         const data = JSON.parse(event.data);
         this.emit('message', data);
-      } catch (error) {
+      } catch (_error) {
         this.emit('error', new Error('Failed to parse message'));
       }
     };

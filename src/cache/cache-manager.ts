@@ -38,7 +38,7 @@ export class CacheManager {
     // Handle different call signatures
     let actualValue = value;
     let actualParams = params;
-    let actualTtl = ttl;
+    const actualTtl = ttl;
     
     // If called with (key, value) signature
     if (value === undefined && ttl === undefined) {
