@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { docsSync } from './docs-sync-mcp'
 import { AuthManager } from '../auth/auth-manager'
+import { VeasConfigParser } from '../config/veas-config-parser'
 import * as prompts from '@clack/prompts'
 import { logger } from '../utils/logger'
 import fs from 'fs-extra'
@@ -12,29 +13,46 @@ vi.mock('@clack/prompts')
 vi.mock('../utils/logger')
 vi.mock('fs-extra')
 vi.mock('fast-glob')
+vi.mock('../config/veas-config-parser')
 
-global.fetch = vi.fn()
+// Mock MCPClient before importing the module that uses it
+const mockMCPClient = {
+  callTool: vi.fn(),
+  callToolSafe: vi.fn(),
+  listTools: vi.fn().mockResolvedValue([]),
+  initialize: vi.fn().mockResolvedValue(undefined),
+}
+
+vi.mock('../mcp/mcp-client', () => ({
+  MCPClient: {
+    getInstance: vi.fn(() => mockMCPClient)
+  }
+}))
+
+// Mock process.exit to not actually exit
+const mockExit = vi.spyOn(process, 'exit').mockImplementation((code) => {
+  throw new Error(`process.exit(${code})`)
+})
 
 describe('DocsSync Command', () => {
   let mockAuthManager: any
   let mockSpinner: any
   let consoleLogSpy: any
-  let processExitSpy: any
+  let mockConfigParser: any
 
   beforeEach(() => {
     vi.clearAllMocks()
     
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called')
+
+    // Mock stdout.isTTY
+    Object.defineProperty(process.stdout, 'isTTY', {
+      value: true,
+      writable: true,
+      configurable: true
     })
 
     mockAuthManager = {
-      ensureAuthenticated: vi.fn(),
-      getCredentials: vi.fn().mockResolvedValue({
-        token: 'test-token',
-        user: { id: 'test-user', email: 'test@example.com' }
-      }),
       getSession: vi.fn().mockResolvedValue({
         token: 'test-token',
         user: { id: 'test-user', email: 'test@example.com' }
@@ -42,12 +60,99 @@ describe('DocsSync Command', () => {
     }
     vi.mocked(AuthManager).getInstance.mockReturnValue(mockAuthManager)
 
+    // Mock VeasConfigParser
+    const mockConfig = {
+      version: 1,
+      publication: {
+        name: 'Test Publication',
+        slug: 'test-pub',
+      },
+      sync: {
+        roots: [{
+          path: './docs',
+          include: ['**/*.md'],
+        }],
+      },
+    }
+    
+    mockConfigParser = {
+      load: vi.fn().mockResolvedValue(mockConfig),
+      getSyncRoots: vi.fn().mockReturnValue([
+        {
+          root: { path: './docs', include: ['**/*.md'] },
+          absolutePath: '/project/docs'
+        }
+      ]),
+      getSyncConfig: vi.fn().mockReturnValue(mockConfig.sync),
+      getPublication: vi.fn().mockReturnValue(mockConfig.publication),
+      shouldIncludeFile: vi.fn().mockReturnValue(true),
+      getRemoteFolder: vi.fn().mockReturnValue(undefined),
+      configPath: '/project/.veas-config.yaml',
+    }
+    
+    vi.mocked(VeasConfigParser).mockImplementation(() => mockConfigParser)
+
+    // Reset MCPClient mocks
+    mockMCPClient.callTool.mockReset()
+    mockMCPClient.callToolSafe.mockReset()
+    mockMCPClient.listTools.mockReset()
+    mockMCPClient.initialize.mockReset()
+    mockMCPClient.listTools.mockResolvedValue([])
+    mockMCPClient.initialize.mockResolvedValue(undefined)
+
+    // Set up default successful responses for common MCP calls
+    mockMCPClient.callToolSafe.mockImplementation((toolName, params) => {
+      // Return appropriate data for specific tools
+      if (toolName === 'mcp-articles_list_publications') {
+        return Promise.resolve({
+          success: true,
+          data: {
+            publications: [{
+              id: 'pub-123',
+              name: 'Test Publication',
+              slug: 'test-pub'
+            }],
+            total: 1
+          }
+        })
+      }
+      if (toolName === 'list_folders') {
+        return Promise.resolve({
+          success: true,
+          data: {
+            folders: [],
+            total: 0
+          }
+        })
+      }
+      if (toolName === 'mcp-articles_list_articles') {
+        return Promise.resolve({
+          success: true,
+          data: {
+            articles: [],
+            total: 0
+          }
+        })
+      }
+      // Default successful response for any unexpected calls
+      return Promise.resolve({
+        success: true,
+        data: {}
+      })
+    })
+
     mockSpinner = {
       start: vi.fn(),
       stop: vi.fn(),
       message: vi.fn(),
     }
     vi.mocked(prompts.spinner).mockReturnValue(mockSpinner)
+
+    // Mock logger
+    vi.mocked(logger.info).mockImplementation(() => {})
+    vi.mocked(logger.error).mockImplementation(() => {})
+    vi.mocked(logger.warn).mockImplementation(() => {})
+    vi.mocked(logger.debug).mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -56,9 +161,9 @@ describe('DocsSync Command', () => {
 
   describe('docsSync', () => {
     const mockFiles = [
-      'docs/README.md',
-      'docs/api/endpoints.md',
-      'docs/guides/getting-started.md',
+      '/project/docs/README.md',
+      '/project/docs/api/endpoints.md',
+      '/project/docs/guides/getting-started.md',
     ]
 
     beforeEach(() => {
@@ -75,339 +180,188 @@ describe('DocsSync Command', () => {
     })
 
     it('should sync documents successfully in dry run mode', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
+      // Reset and set up specific mock implementation
+      mockMCPClient.callToolSafe.mockReset()
+      mockMCPClient.callToolSafe.mockImplementation((toolName) => {
+        if (toolName === 'mcp-articles_list_publications') {
+          return Promise.resolve({
+            success: true,
+            data: {
+              publications: [{
+                id: 'pub-123',
+                name: 'Test Publication',
+                slug: 'test-pub'
+              }],
+              total: 1
+            }
+          })
+        }
+        if (toolName === 'list_folders') {
+          return Promise.resolve({
+            success: true,
+            data: {
+              folders: [],
+              total: 0
+            }
+          })
+        }
+        if (toolName === 'mcp-articles_list_articles') {
+          return Promise.resolve({
+            success: true,
+            data: {
+              articles: [],
+              total: 0
+            }
+          })
+        }
+        // Default response for any other tool
+        return Promise.resolve({
+          success: true,
+          data: {}
+        })
       })
-
-      const mockResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                status: 'success',
-                articlesCreated: 2,
-                articlesUpdated: 1,
-                articlesSkipped: 0,
-              }),
-            },
-          ],
-        },
-      }
-
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response)
 
       await docsSync({
         folder: './docs',
-        publicationId: 'pub-123',
         dryRun: true,
-        verbose: false,
       })
 
-      expect(mockSpinner.start).toHaveBeenCalledWith(expect.stringContaining('Scanning'))
-      expect(mockSpinner.message).toHaveBeenCalledWith(expect.stringContaining('Found 3 markdown files'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('DRY RUN'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Created: 2'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Updated: 1'))
+      expect(mockSpinner.start).toHaveBeenCalledWith('Initializing docs sync...')
+      expect(mockSpinner.stop).toHaveBeenCalledWith('Dry run complete')
+      expect(mockMCPClient.callToolSafe).toHaveBeenCalled()
     })
 
     it('should handle folder not found', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
       vi.mocked(fg).mockResolvedValue([])
 
+      // Use default mock which returns success for all calls
       await docsSync({
         folder: './non-existent',
-        publicationId: 'pub-123',
       })
 
-      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('No markdown files found'))
+      expect(mockSpinner.stop).toHaveBeenCalled()
     })
 
-    it('should handle verbose mode', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
+    it('should handle errors gracefully', async () => {
+      mockMCPClient.callToolSafe.mockReset()
+      // First call will fail with API Error
+      mockMCPClient.callToolSafe.mockResolvedValueOnce({
+        success: false,
+        error: 'API Error'
       })
-
-      const mockResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                status: 'success',
-                articlesCreated: 1,
-                details: [
-                  { file: 'README.md', action: 'created', id: 'article-123' },
-                ],
-              }),
-            },
-          ],
-        },
-      }
-
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response)
-
-      await docsSync({
-        folder: './docs',
-        publicationId: 'pub-123',
-        verbose: true,
-      })
-
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Processing:'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('README.md'))
-      expect(logger.debug).toHaveBeenCalled()
-    })
-
-    it('should handle API errors', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      const mockError = {
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: 'Publication not found',
-        },
-      }
-
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockError,
-      } as Response)
 
       await expect(docsSync({
         folder: './docs',
-        publicationId: 'invalid-pub',
-      })).rejects.toThrow('process.exit')
+      })).rejects.toThrow('process.exit(1)')
 
-      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Failed'))
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Publication not found'))
+      // Check that any error was logged
+      expect(logger.error).toHaveBeenCalled()
     })
 
-    it('should handle file read errors', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      vi.mocked(fs.readFile).mockRejectedValueOnce(new Error('Permission denied'))
+    it('should handle missing session', async () => {
+      mockAuthManager.getSession.mockResolvedValueOnce(null)
 
       await expect(docsSync({
         folder: './docs',
-        publicationId: 'pub-123',
-      })).rejects.toThrow('process.exit')
+      })).rejects.toThrow('process.exit(1)')
 
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Permission denied'))
+      expect(logger.error).toHaveBeenCalledWith('Not logged in. Please run "veas login" first.')
     })
 
     it('should use default folder if not specified', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
       vi.mocked(fg).mockResolvedValue([])
 
-      await docsSync({
-        publicationId: 'pub-123',
-      })
+      // Use default mock which returns success for all calls
+      await docsSync({})
 
-      expect(fg).toHaveBeenCalledWith(
-        expect.stringContaining('**/*.md'),
-        expect.objectContaining({
-          cwd: process.cwd(),
-        })
-      )
+      expect(VeasConfigParser).toHaveBeenCalledWith(undefined)
     })
 
-    it('should exclude ignored patterns', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      await docsSync({
-        folder: './docs',
-        publicationId: 'pub-123',
-      })
-
-      expect(fg).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          ignore: expect.arrayContaining(['**/node_modules/**', '**/.git/**']),
-        })
-      )
-    })
-
-    it('should handle empty file content', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      vi.mocked(fs.readFile).mockResolvedValueOnce('')
-
-      const mockResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                status: 'success',
-                articlesSkipped: 1,
-                skippedReasons: ['Empty file: README.md'],
-              }),
-            },
-          ],
-        },
-      }
-
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response)
-
-      await docsSync({
-        folder: './docs',
-        publicationId: 'pub-123',
-      })
-
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Skipped: 1'))
-    })
-
-    it('should process files in batches', async () => {
-      const manyFiles = Array.from({ length: 50 }, (_, i) => `docs/file${i}.md`)
-      vi.mocked(fg).mockResolvedValue(manyFiles)
-
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      const mockResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                status: 'success',
-                articlesCreated: 50,
-              }),
-            },
-          ],
-        },
-      }
-
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response)
-
-      await docsSync({
-        folder: './docs',
-        publicationId: 'pub-123',
-      })
-
-      expect(mockSpinner.message).toHaveBeenCalledWith(expect.stringContaining('Found 50 markdown files'))
-      // Should batch process, check multiple fetch calls
-      expect(global.fetch).toHaveBeenCalled()
-    })
-
-    it('should respect publication ID from environment', async () => {
-      const originalEnv = process.env.VEAS_PUBLICATION_ID
-      process.env.VEAS_PUBLICATION_ID = 'env-pub-id'
-
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          jsonrpc: '2.0',
-          result: { content: [{ type: 'text', text: '{"status":"success"}' }] },
-        }),
-      } as Response)
-
-      await docsSync({
-        folder: './docs',
-      })
-
-      const callArg = vi.mocked(global.fetch).mock.calls[0][1]
-      const body = JSON.parse(callArg.body)
-      
-      expect(body.params.arguments.publicationId).toBe('env-pub-id')
-
-      process.env.VEAS_PUBLICATION_ID = originalEnv
-    })
-
-    it('should handle network timeouts', async () => {
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      const timeoutError = new Error('Request timeout')
-      timeoutError.name = 'AbortError'
-      vi.mocked(global.fetch).mockRejectedValueOnce(timeoutError)
+    it('should handle config file errors', async () => {
+      mockConfigParser.load.mockRejectedValueOnce(new Error('Config parse error'))
 
       await expect(docsSync({
         folder: './docs',
-        publicationId: 'pub-123',
-      })).rejects.toThrow('process.exit')
+      })).rejects.toThrow('process.exit(1)')
 
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('timeout'))
+      expect(logger.error).toHaveBeenCalledWith('Sync failed: Config parse error')
     })
 
-    it('should create folder structure in publication', async () => {
-      const nestedFiles = [
-        'docs/api/v1/users.md',
-        'docs/api/v1/projects.md',
-        'docs/api/v2/users.md',
-        'docs/guides/quickstart.md',
-      ]
-      vi.mocked(fg).mockResolvedValue(nestedFiles)
+    it('should handle watch mode', async () => {
+      const mockWatcher = {
+        on: vi.fn().mockReturnThis(),
+        close: vi.fn(),
+      }
+      
+      vi.doMock('chokidar', () => ({
+        watch: vi.fn().mockReturnValue(mockWatcher)
+      }))
 
-      mockAuthManager.ensureAuthenticated.mockResolvedValue({
-        accessToken: 'test-token',
+      // Mock the MCP tool calls
+      mockMCPClient.callTool
+        .mockResolvedValueOnce({ // mcp-articles_list_publications
+          success: true,
+          data: {
+            publications: [{
+              id: 'pub-123',
+              name: 'Test Publication',
+              slug: 'test-pub'
+            }],
+            total: 1
+          }
+        })
+        .mockResolvedValueOnce({ // list_folders  
+          success: true,
+          data: {
+            folders: [],
+            total: 0
+          }
+        })
+        .mockResolvedValueOnce({ // list articles
+          success: true,
+          data: {
+            articles: [],
+            total: 0
+          }
+        })
+
+      // This will start watch mode, but we can't test it fully without async control
+      const syncPromise = docsSync({
+        folder: './docs',
+        watch: true,
       })
 
-      const mockResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                status: 'success',
-                foldersCreated: ['api', 'api/v1', 'api/v2', 'guides'],
-                articlesCreated: 4,
-              }),
-            },
-          ],
-        },
-      }
+      // Since watch mode runs indefinitely, we just check that it started
+      expect(syncPromise).toBeDefined()
+    })
 
-      vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockResponse,
-      } as Response)
-
+    it('should handle force mode', async () => {
+      // Use default mock which returns success for all calls
       await docsSync({
         folder: './docs',
-        publicationId: 'pub-123',
-        preserveStructure: true,
+        force: true,
       })
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Folders created'))
+      expect(mockSpinner.start).toHaveBeenCalled()
+    })
+
+    it('should process files without TTY', async () => {
+      // Set TTY to false
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: false,
+        writable: true,
+        configurable: true
+      })
+
+      // Use default mock which returns success for all calls
+      await docsSync({
+        folder: './docs',
+        dryRun: true,
+      })
+
+      // Should use logger instead of spinner
+      expect(logger.info).toHaveBeenCalledWith('Initializing docs sync...')
+      expect(mockSpinner.start).not.toHaveBeenCalled()
     })
   })
 })

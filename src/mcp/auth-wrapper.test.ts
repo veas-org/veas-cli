@@ -2,10 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getBestAuthToken, prepareMCPHeaders, type AuthToken } from './auth-wrapper.js';
 
 // Mock the AuthManager
+const mockGetToken = vi.fn();
+const mockGetSession = vi.fn();
 vi.mock('../auth/auth-manager.js', () => ({
   AuthManager: {
     getInstance: vi.fn(() => ({
-      getToken: vi.fn()
+      getToken: mockGetToken,
+      getSession: mockGetSession
     }))
   }
 }));
@@ -57,19 +60,19 @@ describe('auth-wrapper', () => {
     });
 
     it('should detect non-PAT tokens correctly', async () => {
-      process.env.MCP_TOKEN = 'some_other_token';
+      process.env.MCP_TOKEN = 'someothertoken';  // No underscore = unknown type
       
       const result = await getBestAuthToken();
       
       expect(result).toEqual({
-        token: 'some_other_token',
+        token: 'someothertoken',
         type: 'unknown'
       });
     });
 
     it('should fall back to CLI token', async () => {
-      const mockAuthManager = AuthManager.getInstance();
-      (mockAuthManager.getToken as any).mockResolvedValue('cli_jwt_token');
+      mockGetSession.mockResolvedValue(null);  // No session with PAT
+      mockGetToken.mockResolvedValue('cli_jwt_token');  // But CLI token exists
       
       const result = await getBestAuthToken();
       
@@ -80,8 +83,8 @@ describe('auth-wrapper', () => {
     });
 
     it('should throw error if no token available', async () => {
-      const mockAuthManager = AuthManager.getInstance();
-      (mockAuthManager.getToken as any).mockResolvedValue(null);
+      mockGetSession.mockResolvedValue(null);
+      mockGetToken.mockResolvedValue(null);
       
       await expect(getBestAuthToken()).rejects.toThrow(
         'No authentication token available. Please run "veas login" or set VEAS_PAT environment variable.'

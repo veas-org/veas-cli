@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MCPServer } from '../mcp/server';
+import { DirectMCPServer } from '../mcp/direct-server';
 import { AuthManager } from '../auth/auth-manager';
 import * as prompts from '@clack/prompts';
 import * as dotenv from 'dotenv';
 
 // Mock dependencies before importing serve
-vi.mock('../mcp/server');
+vi.mock('../mcp/direct-server');
 vi.mock('../auth/auth-manager');
 vi.mock('@clack/prompts');
 vi.mock('dotenv');
@@ -24,6 +24,16 @@ describe('serve command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Setup TTY mock
+    Object.defineProperty(process.stdout, 'isTTY', {
+      value: true,
+      writable: true,
+      configurable: true
+    });
+    
+    // Clear MCP_MODE
+    delete process.env.MCP_MODE;
 
     // Setup console spies
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -45,7 +55,7 @@ describe('serve command', () => {
       start: vi.fn().mockResolvedValue(undefined),
       stop: vi.fn().mockResolvedValue(undefined),
     };
-    vi.mocked(MCPServer).mockImplementation(() => mockMCPServer);
+    vi.mocked(DirectMCPServer).mockImplementation(() => mockMCPServer);
 
     // Setup prompts mock
     mockSpinner = {
@@ -73,12 +83,8 @@ describe('serve command', () => {
       await serve(options);
 
       expect(mockAuthManager.isAuthenticated).toHaveBeenCalled();
-      expect(MCPServer).toHaveBeenCalledWith({
+      expect(DirectMCPServer).toHaveBeenCalledWith({
         port: 3333,
-        cacheOptions: {
-          enabled: true,
-          ttl: 300,
-        },
       });
 
       expect(mockMCPServer.initialize).toHaveBeenCalled();
@@ -93,7 +99,7 @@ describe('serve command', () => {
         expect.stringContaining('Port: 3333')
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Cache: Enabled (TTL: 300s)')
+        expect.stringContaining('Cache: Disabled')
       );
     });
 
@@ -106,12 +112,8 @@ describe('serve command', () => {
 
       await serve(options);
 
-      expect(MCPServer).toHaveBeenCalledWith({
+      expect(DirectMCPServer).toHaveBeenCalledWith({
         port: 4000,
-        cacheOptions: {
-          enabled: false,
-          ttl: 600,
-        },
       });
 
       expect(consoleLogSpy).toHaveBeenCalledWith(

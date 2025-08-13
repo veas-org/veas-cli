@@ -13,9 +13,24 @@ interface ServeOptions {
   port: string;
   cacheTtl: string;
   cache: boolean;
+  showConfig?: boolean;
 }
 
 export async function serve(options: ServeOptions) {
+  // If showConfig is set, just display the configuration and exit
+  if (options.showConfig) {
+    const config = {
+      mcpServers: {
+        veas: {
+          command: "veas",
+          args: ["serve"],
+        }
+      }
+    };
+    console.log(JSON.stringify(config, null, 2));
+    return;
+  }
+
   // In MCP mode, we must not output anything to stdout/stderr
   // as it interferes with the JSON-RPC protocol
   const isMCPMode = process.env.MCP_MODE === 'true' || !process.stdout.isTTY;

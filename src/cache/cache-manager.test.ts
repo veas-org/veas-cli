@@ -42,7 +42,7 @@ describe('CacheManager', () => {
 
     it('should create cache with default TTL', () => {
       CacheManager.getInstance()
-      expect(NodeCache).toHaveBeenCalledWith({ stdTTL: 3600 })
+      expect(NodeCache).toHaveBeenCalledWith({ stdTTL: 3600, checkperiod: 120 })
     })
   })
 
@@ -90,7 +90,7 @@ describe('CacheManager', () => {
       const result = cacheManager.set('test-key', 'test-value')
 
       expect(result).toBe(true)
-      expect(mockCache.set).toHaveBeenCalledWith('test-key', 'test-value', undefined)
+      expect(mockCache.set).toHaveBeenCalledWith('test-key', 'test-value')
     })
 
     it('should store value with custom TTL', () => {
@@ -113,7 +113,7 @@ describe('CacheManager', () => {
       const result = cacheManager.set('complex-key', complexObject)
 
       expect(result).toBe(true)
-      expect(mockCache.set).toHaveBeenCalledWith('complex-key', complexObject, undefined)
+      expect(mockCache.set).toHaveBeenCalledWith('complex-key', complexObject)
     })
 
     it('should return false on cache error', () => {

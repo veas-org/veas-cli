@@ -30,6 +30,9 @@ describe('Auth Commands', () => {
       login: vi.fn(),
       logout: vi.fn(),
       getCredentials: vi.fn(),
+      getSession: vi.fn(),
+      refreshToken: vi.fn(),
+      getToken: vi.fn(),
     };
     vi.mocked(AuthManager).getInstance.mockReturnValue(mockAuthManager);
 
@@ -194,11 +197,12 @@ describe('Auth Commands', () => {
 
   describe('status', () => {
     it('should show logged in status with user info', async () => {
-      const credentials = {
-        email: 'test@example.com',
+      const session = {
         user: mockUser,
+        token: 'test-token',
+        email: 'test@example.com',
       };
-      mockAuthManager.getCredentials.mockResolvedValueOnce(credentials);
+      mockAuthManager.getSession.mockResolvedValueOnce(session);
 
       await status();
 
@@ -214,7 +218,7 @@ describe('Auth Commands', () => {
     });
 
     it('should show not logged in status', async () => {
-      mockAuthManager.getCredentials.mockResolvedValueOnce(null);
+      mockAuthManager.getSession.mockResolvedValueOnce(null);
 
       await status();
 
@@ -227,11 +231,12 @@ describe('Auth Commands', () => {
     });
 
     it('should handle credentials without user ID', async () => {
-      const credentials = {
-        email: 'test@example.com',
+      const session = {
         user: { ...mockUser, id: undefined },
+        token: 'test-token',
+        email: 'test@example.com',
       };
-      mockAuthManager.getCredentials.mockResolvedValueOnce(credentials);
+      mockAuthManager.getSession.mockResolvedValueOnce(session);
 
       await status();
 

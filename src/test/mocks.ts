@@ -74,7 +74,11 @@ export function mockFetchResponse(data: any, ok = true, status = 200) {
   return Promise.resolve({
     ok,
     status,
+    statusText: status === 200 ? 'OK' : 'Error',
     json: () => Promise.resolve(data),
     text: () => Promise.resolve(JSON.stringify(data)),
-  } as Response);
+    headers: new Map([
+      ['content-type', 'application/json'],
+    ]),
+  } as unknown as Response);
 }

@@ -8,6 +8,17 @@ import yaml from 'js-yaml'
 vi.mock('fs/promises')
 vi.mock('fs')
 vi.mock('js-yaml')
+vi.mock('fast-glob', () => ({
+  default: vi.fn().mockResolvedValue(['/project/docs/README.md', '/project/docs/guide.md'])
+}))
+vi.mock('../utils/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }
+}))
 
 describe('VeasConfigParser', () => {
   let parser: VeasConfigParser
@@ -107,7 +118,9 @@ describe('VeasConfigParser', () => {
     })
 
     it('should create default config if file does not exist', async () => {
-      vi.mocked(fs.readFile).mockRejectedValue(new Error('ENOENT'))
+      const error = new Error('ENOENT: no such file or directory') as NodeJS.ErrnoException
+      error.code = 'ENOENT'
+      vi.mocked(fs.readFile).mockRejectedValue(error)
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       const config = await parser.load()
@@ -119,8 +132,13 @@ describe('VeasConfigParser', () => {
 
     it('should validate configuration', async () => {
       const invalidConfig = {
-        version: 'invalid', // Should be number
-        sync: {},
+        version: 2, // Unsupported version
+        sync: {
+          roots: [{
+            path: './docs',
+            include: ['**/*.md'],
+          }],
+        },
       }
 
       vi.mocked(fs.readFile).mockResolvedValue(yaml.dump(invalidConfig))
@@ -128,8 +146,8 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       
-      // Should handle validation gracefully
-      await expect(parser.load()).resolves.toBeDefined()
+      // Should throw error for unsupported version
+      await expect(parser.load()).rejects.toThrow('Unsupported configuration version: 2')
     })
   })
 
@@ -224,7 +242,9 @@ describe('VeasConfigParser', () => {
       await parser.load()
       
       const syncConfig = parser.getSyncConfig()
-      expect(syncConfig).toEqual(mockConfig.sync)
+      // The config is merged with defaults, so check the key parts
+      expect(syncConfig.roots).toEqual(mockConfig.sync.roots)
+      expect(syncConfig.metadata?.frontmatter).toEqual(mockConfig.sync.metadata.frontmatter)
     })
   })
 
@@ -249,7 +269,8 @@ describe('VeasConfigParser', () => {
       
       const globs = await parser.resolveGlobs()
       expect(globs).toBeDefined()
-      expect(globs.length).toBeGreaterThan(0)
+      expect(globs.length).toBe(2)
+      expect(globs).toContain('/project/docs/README.md')
     })
   })
 
@@ -262,10 +283,8 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       
-      // Should return default config on error
-      const config = await parser.load()
-      expect(config).toBeDefined()
-      expect(config.version).toBe(1)
+      // Should throw error for YAML parse errors
+      await expect(parser.load()).rejects.toThrow('Failed to load configuration: YAML parse error')
     })
 
     it('should handle file read errors', async () => {
@@ -273,9 +292,8 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       
-      // Should handle gracefully
-      const config = await parser.load()
-      expect(config).toBeDefined()
+      // Should throw error for permission errors
+      await expect(parser.load()).rejects.toThrow('Failed to load configuration: Permission denied')
     })
   })
 

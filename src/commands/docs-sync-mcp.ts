@@ -200,7 +200,7 @@ class DocsSyncer {
       logger.debug(`Resolving organization slug: ${this.config.publication.organization_slug}`)
       
       // Try to find organization by slug from user's organizations
-      const userResponse = await this.mcpClient.callTool('mcp-project-manager_get_user_info', {})
+      const userResponse = await this.mcpClient.callToolSafe('mcp-project-manager_get_user_info', {})
       
       if (userResponse.success) {
         let userData = userResponse.data
@@ -230,7 +230,7 @@ class DocsSyncer {
     if (!this.config.publication?.organization_id || this.config.publication.organization_id === 'anonymous') {
       logger.debug('Attempting to infer organization from existing publications...')
       
-      const listResponse = await this.mcpClient.callTool('mcp-articles_list_publications', {
+      const listResponse = await this.mcpClient.callToolSafe('mcp-articles_list_publications', {
         limit: 5
       })
       
@@ -299,7 +299,7 @@ class DocsSyncer {
     }
 
     // List existing publications using MCP
-    const response = await this.mcpClient.callTool('mcp-articles_list_publications', {
+    const response = await this.mcpClient.callToolSafe('mcp-articles_list_publications', {
       filters: {
         name_contains: this.config.publication.name
       },
@@ -377,7 +377,7 @@ class DocsSyncer {
     }
     
     logger.debug(`Create params:`, JSON.stringify(createParams, null, 2))
-    const createResponse = await this.mcpClient.callTool('mcp-articles_create_publication', createParams)
+    const createResponse = await this.mcpClient.callToolSafe('mcp-articles_create_publication', createParams)
 
     if (!createResponse.success) {
       throw new Error(`Failed to create publication: ${createResponse.error}`)
@@ -406,7 +406,7 @@ class DocsSyncer {
 
   private async ensureFolders(): Promise<void> {
     // List existing folders using MCP
-    const response = await this.mcpClient.callTool('list_folders', {
+    const response = await this.mcpClient.callToolSafe('list_folders', {
       publication_id: this.publicationId,
       include_article_counts: false
     })
@@ -454,7 +454,7 @@ class DocsSyncer {
         logger.debug(`Using existing folder: ${remoteName}`)
       } else {
         try {
-          const folderResponse = await this.mcpClient.callTool('create_folder', {
+          const folderResponse = await this.mcpClient.callToolSafe('create_folder', {
             publication_id: this.publicationId!,
             name: remoteName,
             description: folderConfig.description || null
@@ -570,7 +570,7 @@ class DocsSyncer {
   }
 
   private async fetchRemoteArticles(): Promise<void> {
-    const response = await this.mcpClient.callTool('mcp-articles_list_articles', {
+    const response = await this.mcpClient.callToolSafe('mcp-articles_list_articles', {
       filters: {
         publication_id: this.publicationId
       },
@@ -711,7 +711,7 @@ class DocsSyncer {
           ? this.folderIds.get(file.remoteFolder)
           : undefined
 
-        const createResponse = await this.mcpClient.callTool('mcp-articles_create_article', {
+        const createResponse = await this.mcpClient.callToolSafe('mcp-articles_create_article', {
           title: file.metadata.title,
           content: file.content,
           status: file.metadata.status || 'published',
@@ -759,7 +759,7 @@ class DocsSyncer {
           }
         }
 
-        const updateResponse = await this.mcpClient.callTool('mcp-articles_update_article', {
+        const updateResponse = await this.mcpClient.callToolSafe('mcp-articles_update_article', {
           article_id: article.id,
           ...updateData
         })
@@ -778,7 +778,7 @@ class DocsSyncer {
     // Archive articles
     for (const article of operations.archive) {
       try {
-        const archiveResponse = await this.mcpClient.callTool('mcp-articles_update_article', {
+        const archiveResponse = await this.mcpClient.callToolSafe('mcp-articles_update_article', {
           article_id: article.id,
           status: 'archived'
         })
@@ -802,7 +802,7 @@ class DocsSyncer {
       // First create tags if they don't exist
       for (const tagName of tagNames) {
         try {
-          const searchResponse = await this.mcpClient.callTool('search_tags', {
+          const searchResponse = await this.mcpClient.callToolSafe('search_tags', {
             search_term: tagName,
             filters: {
               publication_id: this.publicationId
@@ -810,7 +810,7 @@ class DocsSyncer {
           })
 
           if (searchResponse.success && (!searchResponse.data?.tags || searchResponse.data.tags.length === 0)) {
-            await this.mcpClient.callTool('create_tag', {
+            await this.mcpClient.callToolSafe('create_tag', {
               data: {
                 name: tagName,
                 publication_id: this.publicationId
@@ -825,7 +825,7 @@ class DocsSyncer {
       // Get all tag IDs
       const tagIds: string[] = []
       for (const tagName of tagNames) {
-        const listResponse = await this.mcpClient.callTool('list_tags', {
+        const listResponse = await this.mcpClient.callToolSafe('list_tags', {
           filters: {
             name_contains: tagName,
             publication_id: this.publicationId
@@ -841,7 +841,7 @@ class DocsSyncer {
 
       // Add tags to article
       if (tagIds.length > 0) {
-        await this.mcpClient.callTool('mcp-articles_add_article_tags', {
+        await this.mcpClient.callToolSafe('mcp-articles_add_article_tags', {
           article_id: articleId,
           tag_ids: tagIds
         })

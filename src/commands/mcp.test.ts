@@ -6,7 +6,22 @@ import { logger } from '../utils/logger'
 
 vi.mock('../auth/auth-manager')
 vi.mock('@clack/prompts')
-vi.mock('../utils/logger')
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  }
+}))
+
+// Mock MCPClient
+vi.mock('../mcp/mcp-client.js', () => ({
+  MCPClient: vi.fn().mockImplementation(() => ({
+    initialize: vi.fn(),
+    listTools: vi.fn(),
+  }))
+}))
 
 global.fetch = vi.fn()
 
@@ -27,6 +42,8 @@ describe('MCP Commands', () => {
     mockAuthManager = {
       getCredentials: vi.fn(),
       ensureAuthenticated: vi.fn(),
+      getToken: vi.fn(),
+      isAuthenticated: vi.fn().mockResolvedValue(true),
     }
     vi.mocked(AuthManager).getInstance.mockReturnValue(mockAuthManager)
 
@@ -102,10 +119,11 @@ describe('MCP Commands', () => {
 
     it('should handle unauthenticated state', async () => {
       mockAuthManager.getCredentials.mockResolvedValue(null)
+      mockAuthManager.getToken.mockResolvedValue(null)
 
       await expect(testConnection()).rejects.toThrow('process.exit')
       
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Not authenticated'))
+      expect(logger.error).toHaveBeenCalledWith('No authentication token found')
     })
 
     it('should use environment API URL', async () => {
@@ -138,23 +156,16 @@ describe('MCP Commands', () => {
         accessToken: 'test-token',
         user: { id: 'user-123' },
       })
+      mockAuthManager.getCredentials.mockResolvedValue({
+        accessToken: 'test-token',
+      })
 
       const mockProjects = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                projects: [
-                  { id: '1', name: 'Project 1', key: 'PROJ1' },
-                  { id: '2', name: 'Project 2', key: 'PROJ2' },
-                ],
-                total: 2,
-              }),
-            },
-          ],
-        },
+        projects: [
+          { id: '1', name: 'Project 1', description: 'First project' },
+          { id: '2', name: 'Project 2', description: 'Second project' },
+        ],
+        total: 2,
       }
 
       vi.mocked(global.fetch).mockResolvedValueOnce({
@@ -166,28 +177,21 @@ describe('MCP Commands', () => {
 
       expect(mockSpinner.start).toHaveBeenCalledWith('Fetching projects...')
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Found 2 projects'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Project 1'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('PROJ1'))
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Project 1'))
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Project 2'))
     })
 
     it('should handle empty project list', async () => {
       mockAuthManager.ensureAuthenticated.mockResolvedValue({
         accessToken: 'test-token',
       })
+      mockAuthManager.getCredentials.mockResolvedValue({
+        accessToken: 'test-token',
+      })
 
       const mockProjects = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                projects: [],
-                total: 0,
-              }),
-            },
-          ],
-        },
+        projects: [],
+        total: 0,
       }
 
       vi.mocked(global.fetch).mockResolvedValueOnce({
@@ -197,7 +201,8 @@ describe('MCP Commands', () => {
 
       await listProjects()
 
-      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('No projects found'))
+      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Found 0 projects'))
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('No projects found'))
     })
 
     it('should handle API errors', async () => {
@@ -219,19 +224,21 @@ describe('MCP Commands', () => {
       mockAuthManager.ensureAuthenticated.mockResolvedValue({
         accessToken: 'test-token',
       })
+      mockAuthManager.getCredentials.mockResolvedValue({
+        accessToken: 'test-token',
+      })
 
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ jsonrpc: '2.0', result: { content: [] } }),
+        json: async () => ({ projects: [], total: 0 }),
       } as Response)
 
       await listProjects({ limit: 20, offset: 40 })
 
-      const callArg = vi.mocked(global.fetch).mock.calls[0][1]
-      const body = JSON.parse(callArg.body)
-      
-      expect(body.params.arguments.limit).toBe(20)
-      expect(body.params.arguments.offset).toBe(40)
+      // For GET requests, parameters are in the URL
+      const callUrl = vi.mocked(global.fetch).mock.calls[0][0]
+      expect(callUrl).toContain('limit=20')
+      expect(callUrl).toContain('offset=40')
     })
   })
 
@@ -246,33 +253,22 @@ describe('MCP Commands', () => {
         .mockResolvedValueOnce('Bug in login') // summary
         .mockResolvedValueOnce('Users cannot login with email') // description
 
-      const mockResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                id: 'issue-123',
-                key: 'PROJ1-42',
-                summary: 'Bug in login',
-                status: 'To Do',
-              }),
-            },
-          ],
-        },
+      const mockIssue = {
+        id: 'issue-123',
+        key: 'PROJ1-42',
+        summary: 'Bug in login',
+        status: 'To Do',
       }
 
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => mockIssue,
       } as Response)
 
       await createIssue()
 
       expect(mockSpinner.start).toHaveBeenCalledWith('Creating issue...')
-      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('created successfully'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('PROJ1-42'))
+      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Issue created: PROJ1-42'))
     })
 
     it('should handle cancelled input', async () => {
@@ -282,9 +278,9 @@ describe('MCP Commands', () => {
 
       vi.mocked(prompts.text).mockResolvedValueOnce(Symbol.for('cancel'))
 
-      await createIssue()
+      await expect(createIssue()).rejects.toThrow('process.exit')
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Cancelled'))
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Cancelled'))
       expect(global.fetch).not.toHaveBeenCalled()
     })
 
@@ -292,38 +288,52 @@ describe('MCP Commands', () => {
       mockAuthManager.ensureAuthenticated.mockResolvedValue({
         accessToken: 'test-token',
       })
+      mockAuthManager.getCredentials.mockResolvedValue({
+        accessToken: 'test-token',
+      })
 
-      vi.mocked(prompts.text)
-        .mockResolvedValueOnce('') // empty project
-        .mockResolvedValueOnce('Summary')
-        .mockResolvedValueOnce('Description')
-
-      await expect(createIssue()).rejects.toThrow('process.exit')
+      // Mock the text validation to fail for empty input
+      const mockTextFn = vi.fn()
+        .mockImplementationOnce((opts: any) => {
+          // Call the validate function to ensure it returns error
+          if (opts.validate) {
+            const error = opts.validate('')
+            expect(error).toBe('Project ID is required')
+          }
+          // Return a valid value to continue flow
+          return Promise.resolve('PROJ1')
+        })
+        .mockResolvedValueOnce('Title')
       
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('required'))
+      vi.mocked(prompts.text).mockImplementation(mockTextFn)
+
+      // Mock the API to work correctly
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ key: 'PROJ1-1' }),
+      } as Response)
+
+      await createIssue()
+      
+      // Verify that validation was called
+      expect(mockTextFn).toHaveBeenCalled()
     })
 
     it('should handle API error response', async () => {
       mockAuthManager.ensureAuthenticated.mockResolvedValue({
         accessToken: 'test-token',
       })
+      mockAuthManager.getCredentials.mockResolvedValue({
+        accessToken: 'test-token',
+      })
 
       vi.mocked(prompts.text)
         .mockResolvedValueOnce('PROJ1')
-        .mockResolvedValueOnce('Summary')
-        .mockResolvedValueOnce('Description')
-
-      const mockError = {
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: 'Project not found',
-        },
-      }
+        .mockResolvedValueOnce('Title')
 
       vi.mocked(global.fetch).mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockError,
+        ok: false,
+        text: async () => 'API error: Project not found',
       } as Response)
 
       await expect(createIssue()).rejects.toThrow('process.exit')
@@ -335,118 +345,58 @@ describe('MCP Commands', () => {
 
   describe('testDirectMCP', () => {
     it('should test direct MCP server', async () => {
-      mockAuthManager.getCredentials.mockResolvedValue({
+      mockAuthManager.ensureAuthenticated.mockResolvedValue({
         accessToken: 'test-token',
         user: { email: 'test@example.com' },
       })
 
-      const mockInitResponse = {
-        jsonrpc: '2.0',
-        result: {
-          protocolVersion: '2024-11-05',
-          capabilities: {
-            tools: { listChanged: true },
+      // Mock MCPClient instance
+      const mockClient = {
+        initialize: vi.fn().mockResolvedValue(undefined),
+        listTools: vi.fn().mockResolvedValue([
+          {
+            name: 'mcp__veas__list_projects',
+            description: 'List projects',
+            inputSchema: {},
           },
-          serverInfo: {
-            name: 'veas-direct-mcp',
-            version: '1.0.0',
-          },
-        },
+        ]),
       }
 
-      const mockToolsResponse = {
-        jsonrpc: '2.0',
-        result: {
-          tools: [
-            {
-              name: 'mcp__veas__list_projects',
-              description: 'List projects',
-              inputSchema: {},
-            },
-          ],
-        },
-      }
-
-      const mockToolCallResponse = {
-        jsonrpc: '2.0',
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ projects: [], total: 0 }),
-            },
-          ],
-        },
-      }
-
-      vi.mocked(global.fetch)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockInitResponse,
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockToolsResponse,
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockToolCallResponse,
-        } as Response)
+      const { MCPClient } = await import('../mcp/mcp-client.js')
+      vi.mocked(MCPClient).mockImplementation(() => mockClient as any)
 
       await testDirectMCP()
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Testing Direct MCP Server'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Server initialized'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Available tools: 1'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Tool call successful'))
+      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Direct MCP test successful'))
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Available tools:'))
     })
 
     it('should handle initialization failure', async () => {
-      mockAuthManager.getCredentials.mockResolvedValue({
-        accessToken: 'test-token',
-      })
-
-      vi.mocked(global.fetch).mockRejectedValueOnce(new Error('Connection refused'))
+      mockAuthManager.ensureAuthenticated.mockRejectedValueOnce(new Error('Auth failed'))
 
       await expect(testDirectMCP()).rejects.toThrow('process.exit')
       
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('failed'))
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Connection refused'))
+      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('failed'))
+      expect(logger.error).toHaveBeenCalledWith('Error testing direct MCP:', expect.any(Error))
     })
 
     it('should handle missing tools', async () => {
-      mockAuthManager.getCredentials.mockResolvedValue({
+      mockAuthManager.ensureAuthenticated.mockResolvedValue({
         accessToken: 'test-token',
       })
 
-      const mockInitResponse = {
-        jsonrpc: '2.0',
-        result: {
-          protocolVersion: '2024-11-05',
-          capabilities: {},
-          serverInfo: { name: 'test', version: '1.0.0' },
-        },
+      // Mock MCPClient instance with no tools
+      const mockClient = {
+        initialize: vi.fn().mockResolvedValue(undefined),
+        listTools: vi.fn().mockResolvedValue([]),
       }
 
-      const mockToolsResponse = {
-        jsonrpc: '2.0',
-        result: { tools: [] },
-      }
+      const { MCPClient } = await import('../mcp/mcp-client.js')
+      vi.mocked(MCPClient).mockImplementation(() => mockClient as any)
 
-      vi.mocked(global.fetch)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockInitResponse,
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockToolsResponse,
-        } as Response)
-
-      await testDirectMCP()
-
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Available tools: 0'))
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('No tools available'))
+      await expect(testDirectMCP()).rejects.toThrow('process.exit')
+      
+      expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('No tools available'))
     })
   })
 })

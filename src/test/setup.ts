@@ -9,7 +9,11 @@ vi.mock('os', () => ({
   default: {
     homedir: vi.fn(() => '/tmp/test-home'),
     hostname: vi.fn(() => 'test-host'),
+    platform: vi.fn(() => 'darwin'),
+    arch: vi.fn(() => 'x64'),
   },
   homedir: vi.fn(() => '/tmp/test-home'),
   hostname: vi.fn(() => 'test-host'),
+  platform: vi.fn(() => 'darwin'),
+  arch: vi.fn(() => 'x64'),
 }));

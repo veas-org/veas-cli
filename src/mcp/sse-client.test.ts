@@ -10,6 +10,9 @@ class MockEventSource extends EventEmitter {
   CONNECTING = 0
   OPEN = 1
   CLOSED = 2
+  onopen: ((event: any) => void) | null = null
+  onmessage: ((event: any) => void) | null = null
+  onerror: ((event: any) => void) | null = null
   
   constructor(url: string, options?: any) {
     super()
@@ -18,7 +21,36 @@ class MockEventSource extends EventEmitter {
     setTimeout(() => {
       this.readyState = 1
       this.emit('open')
+      if (this.onopen) this.onopen({ type: 'open' })
     }, 0)
+  }
+  
+  addEventListener(type: string, listener: (event: any) => void): void {
+    this.on(type, listener)
+    // Also set the appropriate handler
+    if (type === 'message' && !this.onmessage) {
+      this.onmessage = listener
+    } else if (type === 'error' && !this.onerror) {
+      this.onerror = listener
+    } else if (type === 'open' && !this.onopen) {
+      this.onopen = listener
+    }
+  }
+  
+  removeEventListener(type: string, listener: (event: any) => void): void {
+    this.off(type, listener)
+  }
+  
+  emit(event: string, ...args: any[]): boolean {
+    // Call the appropriate handler if set
+    if (event === 'message' && this.onmessage) {
+      this.onmessage(args[0])
+    } else if (event === 'error' && this.onerror) {
+      this.onerror(args[0])
+    } else if (event === 'open' && this.onopen) {
+      this.onopen(args[0])
+    }
+    return super.emit(event, ...args)
   }
   
   close() {
@@ -68,7 +100,8 @@ describe('SSEClient', () => {
 
   describe('connect', () => {
     it('should establish SSE connection', async () => {
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       expect(client['eventSource']).toBeDefined()
       expect(client['eventSource']?.url).toBe('http://localhost:3000/sse')
@@ -78,17 +111,18 @@ describe('SSEClient', () => {
       const onOpen = vi.fn()
       client.on('open', onOpen)
       
-      await client.connect()
+      client.connect()
       await new Promise(resolve => setTimeout(resolve, 10))
       
       expect(onOpen).toHaveBeenCalled()
     })
 
     it('should not reconnect if already connected', async () => {
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       const firstSource = client['eventSource']
       
-      await client.connect()
+      client.connect()
       const secondSource = client['eventSource']
       
       expect(firstSource).toBe(secondSource)
@@ -99,7 +133,8 @@ describe('SSEClient', () => {
         withCredentials: true,
       })
       
-      await customClient.connect()
+      customClient.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       expect(customClient['eventSource']?.withCredentials).toBe(true)
       customClient.disconnect()
@@ -108,7 +143,8 @@ describe('SSEClient', () => {
 
   describe('disconnect', () => {
     it('should close SSE connection', async () => {
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       const eventSource = client['eventSource']
       const closeSpy = vi.spyOn(eventSource!, 'close')
       
@@ -126,7 +162,8 @@ describe('SSEClient', () => {
       const onClose = vi.fn()
       client.on('close', onClose)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       client.disconnect()
       
       expect(onClose).toHaveBeenCalled()
@@ -138,7 +175,8 @@ describe('SSEClient', () => {
       const onMessage = vi.fn()
       client.on('message', onMessage)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       const messageEvent = new MessageEvent('message', {
         data: JSON.stringify({ type: 'test', content: 'Hello' }),
@@ -155,7 +193,8 @@ describe('SSEClient', () => {
       const onError = vi.fn()
       client.on('error', onError)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       const messageEvent = new MessageEvent('message', {
         data: 'invalid json',
@@ -169,7 +208,8 @@ describe('SSEClient', () => {
       const onCustom = vi.fn()
       client.on('custom-event', onCustom)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       client.addEventListener('custom-event', (data) => onCustom(data))
       
       const customEvent = new MessageEvent('custom-event', {
@@ -186,7 +226,8 @@ describe('SSEClient', () => {
       const onError = vi.fn()
       client.on('error', onError)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       const errorEvent = new Event('error')
       client['eventSource']?.emit('error', errorEvent)
@@ -197,7 +238,8 @@ describe('SSEClient', () => {
     it('should attempt reconnection on error', async () => {
       vi.useFakeTimers()
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       const firstSource = client['eventSource']
       
       // Simulate error
@@ -216,7 +258,8 @@ describe('SSEClient', () => {
       const onClose = vi.fn()
       client.on('close', onClose)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       // Simulate network disconnect
       client['eventSource']?.close()
@@ -232,7 +275,8 @@ describe('SSEClient', () => {
         json: async () => ({ success: true }),
       })
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       const result = await client.send({ action: 'test' })
       
       expect(global.fetch).toHaveBeenCalledWith(
@@ -251,7 +295,8 @@ describe('SSEClient', () => {
     it('should handle send errors', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       await expect(client.send({ action: 'test' })).rejects.toThrow('Network error')
     })
@@ -266,7 +311,8 @@ describe('SSEClient', () => {
         headers: { 'Authorization': 'Bearer token' },
       })
       
-      await authClient.connect()
+      authClient.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       await authClient.send({ data: 'test' })
       
       expect(global.fetch).toHaveBeenCalledWith(
@@ -334,7 +380,8 @@ describe('SSEClient', () => {
 
     it('should implement exponential backoff', async () => {
       // Would need implementation in actual client
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       // First reconnection attempt - 1s
       client['eventSource']?.emit('error', new Event('error'))
@@ -353,7 +400,8 @@ describe('SSEClient', () => {
       const onMaxRetriesReached = vi.fn()
       client.on('max-retries-reached', onMaxRetriesReached)
       
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       // Simulate multiple failures
       for (let i = 0; i < 10; i++) {
@@ -365,7 +413,8 @@ describe('SSEClient', () => {
     })
 
     it('should reset retry count on successful connection', async () => {
-      await client.connect()
+      client.connect()
+      await new Promise(resolve => setTimeout(resolve, 10))
       
       // Simulate error and reconnection
       client['eventSource']?.emit('error', new Event('error'))
@@ -380,20 +429,19 @@ describe('SSEClient', () => {
   })
 
   describe('state management', () => {
-    it('should track connection state', () => {
+    it('should track connection state', async () => {
       expect(client.isConnected()).toBe(false)
       
       client.connect()
       // After connection is established
-      setTimeout(() => {
-        expect(client.isConnected()).toBe(true)
-      }, 10)
+      await new Promise(resolve => setTimeout(resolve, 10))
+      expect(client.isConnected()).toBe(true)
     })
 
     it('should provide ready state', async () => {
       expect(client.getReadyState()).toBe(EventSource.CLOSED)
       
-      await client.connect()
+      client.connect()
       await new Promise(resolve => setTimeout(resolve, 10))
       
       expect(client.getReadyState()).toBe(EventSource.OPEN)

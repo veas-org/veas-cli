@@ -4,11 +4,24 @@ import { AuthManager } from '../auth/auth-manager';
 import { CacheManager } from '../cache/cache-manager';
 import { mockTools, mockFetchResponse } from '../test/mocks';
 import * as toolsRegistry from './tools-registry';
+import * as authWrapper from './auth-wrapper';
 
 // Mock dependencies
 vi.mock('../auth/auth-manager');
 vi.mock('../cache/cache-manager');
 vi.mock('./tools-registry');
+vi.mock('./auth-wrapper', () => ({
+  getBestAuthToken: vi.fn().mockResolvedValue({ token: 'test-token', type: 'session' }),
+  prepareMCPHeaders: vi.fn().mockReturnValue({ 'Authorization': 'Bearer test-token' }),
+}));
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  }
+}));
 vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
   StdioServerTransport: vi.fn().mockImplementation(() => ({
     connect: vi.fn(),
@@ -39,11 +52,18 @@ describe('MCPServer', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
+    // Re-mock getBestAuthToken after clearAllMocks
+    vi.mocked(authWrapper.getBestAuthToken).mockResolvedValue({ token: 'test-token', type: 'session' });
+
     // Setup auth manager mock
     mockAuthManager = {
       isAuthenticated: vi.fn().mockResolvedValue(true),
       getToken: vi.fn().mockResolvedValue('test-token'),
       refreshToken: vi.fn().mockResolvedValue(undefined),
+      getSession: vi.fn().mockResolvedValue({
+        token: 'test-token',
+        user: { id: 'user-123', email: 'test@example.com' }
+      }),
     };
     vi.mocked(AuthManager).getInstance.mockReturnValue(mockAuthManager);
 
@@ -90,26 +110,46 @@ describe('MCPServer', () => {
     });
 
     it('should initialize successfully when authenticated', async () => {
+      // Mock fetch response for tools/list
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: {
+            tools: mockTools
+          }
+        })
+      } as Response);
+
       await server.initialize();
 
       expect(mockAuthManager.isAuthenticated).toHaveBeenCalled();
-      expect(toolsRegistry.getMCPTools).toHaveBeenCalledWith('test-token');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Loaded 2 MCP tools'));
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/mcp-simple'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-token'
+          })
+        })
+      );
     });
 
     it('should throw error when not authenticated', async () => {
       mockAuthManager.isAuthenticated.mockResolvedValueOnce(false);
 
       await expect(server.initialize()).rejects.toThrow(
-        'Not authenticated. Please run "veas login" first.'
+        'Not authenticated. Please run "veas login" first or set VEAS_PAT environment variable.'
       );
     });
 
     it('should throw error when no token available', async () => {
-      mockAuthManager.getToken.mockResolvedValueOnce(null);
+      vi.mocked(authWrapper.getBestAuthToken).mockRejectedValueOnce(
+        new Error('No authentication token found')
+      );
 
       await expect(server.initialize()).rejects.toThrow(
-        'No authentication token available'
+        'No authentication token found'
       );
     });
   });
@@ -129,6 +169,17 @@ describe('MCPServer', () => {
         const schemaName = schema === 'ListToolsRequestSchema' ? 'ListToolsRequestSchema' : 'CallToolRequestSchema';
         handlers.set(schemaName, handler);
       });
+
+      // Mock fetch for initialization
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jsonrpc: '2.0',
+          result: {
+            tools: mockTools
+          }
+        })
+      } as Response);
 
       await server.initialize();
     });

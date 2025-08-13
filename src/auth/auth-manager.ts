@@ -276,6 +276,13 @@ export class AuthManager {
     return session !== null && !!session.token;
   }
 
+  async ensureAuthenticated(): Promise<void> {
+    const isAuth = await this.isAuthenticated();
+    if (!isAuth) {
+      throw new Error('Not authenticated. Please run "veas login" first.');
+    }
+  }
+
   async refreshToken(): Promise<void> {
     const session = await this.getSession();
     if (!session) {

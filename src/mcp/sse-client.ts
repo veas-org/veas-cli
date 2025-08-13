@@ -2,6 +2,22 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { prepareMCPHeaders, type AuthToken, getBestAuthToken } from './auth-wrapper.js';
 import { EventEmitter } from 'events';
 
+// EventSource is a browser API, we declare it for TypeScript
+declare global {
+  class EventSource {
+    constructor(url: string, options?: any);
+    onopen: ((event: any) => void) | null;
+    onmessage: ((event: any) => void) | null;
+    onerror: ((event: any) => void) | null;
+    close(): void;
+    addEventListener(type: string, listener: (event: any) => void): void;
+    readyState: number;
+    static readonly CONNECTING: number;
+    static readonly OPEN: number;
+    static readonly CLOSED: number;
+  }
+}
+
 /**
  * SSEClient class for Server-Sent Events
  */
@@ -9,7 +25,7 @@ export class SSEClient extends EventEmitter {
   private url: string;
   private eventSource: EventSource | null = null;
   private options: any;
-  private isConnected: boolean = false;
+  private connectionStatus: boolean = false;
 
   constructor(url: string, options?: any) {
     super();
@@ -18,12 +34,12 @@ export class SSEClient extends EventEmitter {
   }
 
   connect(): void {
-    if (this.isConnected) return;
+    if (this.connectionStatus) return;
     
     this.eventSource = new EventSource(this.url, this.options);
     
     this.eventSource.onopen = () => {
-      this.isConnected = true;
+      this.connectionStatus = true;
       this.emit('open');
     };
     
@@ -51,18 +67,18 @@ export class SSEClient extends EventEmitter {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
-      this.isConnected = false;
+      this.connectionStatus = false;
       this.emit('close');
     }
   }
 
-  async send(data: any): Promise<void> {
+  async send(data: any): Promise<any> {
     // Send data to server via fetch
     const response = await fetch(this.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...this.options.headers,
+        ...(this.options?.headers || {}),
       },
       body: JSON.stringify(data),
     });
@@ -70,10 +86,28 @@ export class SSEClient extends EventEmitter {
     if (!response.ok) {
       throw new Error(`Failed to send data: ${response.statusText}`);
     }
+    
+    return response.json();
   }
 
   get readyState(): number {
-    return this.eventSource?.readyState ?? EventSource.CLOSED;
+    return this.eventSource?.readyState ?? 2; // CLOSED state
+  }
+
+  addEventListener(type: string, listener: (data: any) => void): void {
+    this.on(type, listener);
+  }
+
+  removeEventListener(type: string, listener: (data: any) => void): void {
+    this.off(type, listener);
+  }
+
+  isConnected(): boolean {
+    return this.connectionStatus;
+  }
+
+  getReadyState(): number {
+    return this.eventSource?.readyState ?? 2; // CLOSED state
   }
 }
 

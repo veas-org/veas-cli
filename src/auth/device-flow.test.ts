@@ -5,7 +5,15 @@ import { logger } from '../utils/logger'
 import * as util from 'util'
 
 vi.mock('@clack/prompts')
-vi.mock('../utils/logger')
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    debugSensitive: vi.fn(),
+  }
+}))
 vi.mock('util', () => ({
   promisify: vi.fn((fn) => {
     return (...args: any[]) => {
@@ -294,16 +302,25 @@ describe('OAuthDeviceFlow', () => {
     })
 
     it('should handle browser open failure gracefully', async () => {
-      // Mock exec to fail
-      const exec = { __mockResult: { error: new Error('Command failed') } }
-      vi.mocked(util.promisify).mockReturnValueOnce(() => {
-        return Promise.reject(new Error('Command failed'))
+      // Mock promisify to return a function that rejects
+      const originalMock = vi.mocked(util.promisify).getMockImplementation()
+      vi.mocked(util.promisify).mockImplementationOnce(() => {
+        return () => Promise.reject(new Error('Command failed'))
       })
 
       await expect(deviceFlow.openBrowser('https://test.com')).resolves.not.toThrow()
       
       expect(logger.warn).toHaveBeenCalledWith('Could not open browser automatically.')
-      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Please visit this URL to authenticate:'))
+      expect(logger.info).toHaveBeenCalled()
+      // Check that at least one call contains the expected text (accounting for color codes)
+      const infoCalls = vi.mocked(logger.info).mock.calls
+      const hasAuthMessage = infoCalls.some(call => 
+        call[0] && call[0].toString().includes('Please visit this URL to authenticate:')
+      )
+      expect(hasAuthMessage).toBe(true)
+      
+      // Restore original mock
+      vi.mocked(util.promisify).mockImplementation(originalMock!)
     })
   })
 

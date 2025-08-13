@@ -25,33 +25,43 @@ export class CacheManager {
     return CacheManager.instance;
   }
 
-  async get<T = any>(key: string, params?: any): Promise<T | undefined> {
+  get<T = any>(key: string, params?: any): T | undefined {
     if (!this.enabled) return undefined;
     
     const cacheKey = this.createKey(key, params);
     return this.cache.get<T>(cacheKey);
   }
 
-  async set(key: string, params: any, value?: any, ttl?: number): Promise<boolean> {
+  // Async version for compatibility
+  async getAsync<T = any>(key: string, params?: any): Promise<T | undefined> {
+    return this.get<T>(key, params);
+  }
+
+  set(key: string, value: any, ttl?: number): boolean {
     if (!this.enabled) return false;
     
-    // Handle different call signatures
-    let actualValue = value;
-    let actualParams = params;
-    const actualTtl = ttl;
-    
-    // If called with (key, value) signature
-    if (value === undefined && ttl === undefined) {
-      actualValue = params;
-      actualParams = undefined;
-    }
-    
-    const cacheKey = this.createKey(key, actualParams);
-    if (actualTtl !== undefined) {
-      return this.cache.set(cacheKey, actualValue, actualTtl);
+    if (ttl !== undefined) {
+      return this.cache.set(key, value, ttl);
     } else {
-      return this.cache.set(cacheKey, actualValue);
+      return this.cache.set(key, value);
     }
+  }
+
+  // Set with params for cache key generation
+  setWithParams(key: string, params: any, value: any, ttl?: number): boolean {
+    if (!this.enabled) return false;
+    
+    const cacheKey = this.createKey(key, params);
+    if (ttl !== undefined) {
+      return this.cache.set(cacheKey, value, ttl);
+    } else {
+      return this.cache.set(cacheKey, value);
+    }
+  }
+
+  // Async version for compatibility
+  async setAsync(key: string, value: any, ttl?: number): Promise<boolean> {
+    return this.set(key, value, ttl);
   }
 
   private createKey(key: string, params?: any): string {

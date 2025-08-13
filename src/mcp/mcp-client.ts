@@ -10,6 +10,7 @@ export class MCPClient {
   private static instance: MCPClient;
   private authManager: AuthManager;
   private baseUrl: string;
+  private connected: boolean = false;
 
   constructor(baseUrl?: string) {
     this.authManager = AuthManager.getInstance();
@@ -23,15 +24,15 @@ export class MCPClient {
     return MCPClient.instance;
   }
 
-  async initialize(): Promise<void> {
+  async initialize(): Promise<any> {
     const credentials = await this.authManager.getCredentials();
-    const token = credentials?.patToken || credentials?.token;
+    const token = credentials?.patToken || credentials?.token || (credentials as any)?.accessToken;
     
     if (!token) {
       throw new Error('Not authenticated. Please run "veas login" first.');
     }
 
-    const response = await fetch(`${this.baseUrl}/api/mcp/mcp`, {
+    const response = await fetch(`${this.baseUrl}/api/mcp-manual`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,11 +59,18 @@ export class MCPClient {
       }
       throw new Error(`Initialization failed: ${response.statusText}`);
     }
+
+    const result = await response.json();
+    if (result?.error) {
+      throw new Error(result.error.message);
+    }
+    this.connected = true;
+    return result?.result;
   }
 
   async listTools(): Promise<any> {
     const credentials = await this.authManager.getCredentials();
-    const token = credentials?.patToken || credentials?.token;
+    const token = credentials?.patToken || credentials?.token || (credentials as any)?.accessToken;
     
     if (!token) {
       throw new Error('Authentication token not found. Please run "veas login" first.');
@@ -96,7 +104,7 @@ export class MCPClient {
 
   async request(method: string, params: any, headers?: any): Promise<any> {
     const credentials = await this.authManager.getCredentials();
-    const token = credentials?.patToken || credentials?.token;
+    const token = credentials?.patToken || credentials?.token || (credentials as any)?.accessToken;
     
     const response = await fetch(`${this.baseUrl}/api/mcp/mcp`, {
       method: 'POST',
@@ -117,26 +125,26 @@ export class MCPClient {
   }
 
   disconnect(): void {
-    // Disconnect logic
+    this.connected = false;
   }
 
   isConnected(): boolean {
-    return true; // For compatibility with tests
+    return this.connected;
   }
 
   /**
    * Call an MCP tool directly via the mcp-simple endpoint
    * This ensures we always get real data from the server
    */
-  async callTool(toolName: string, params: any): Promise<MCPResult> {
+  async callTool(toolName: string, params: any): Promise<any> {
     const credentials = await this.authManager.getCredentials();
-    const token = credentials?.patToken || credentials?.token;
+    const token = credentials?.patToken || credentials?.token || (credentials as any)?.accessToken;
     
     if (!token) {
       throw new Error('Authentication token not found. Please run "veas login" first.');
     }
 
-    const url = `${process.env.VEAS_API_URL || 'https://veas.app'}/api/mcp-simple`;
+    const url = `${this.baseUrl}/api/mcp-manual`;
     const requestBody = {
       jsonrpc: '2.0',
       method: 'tools/call',
@@ -168,47 +176,48 @@ export class MCPClient {
       
       if (!response.ok) {
         logger.error(`HTTP ${response.status}: ${responseText}`);
-        return {
-          success: false,
-          error: `HTTP ${response.status}: ${responseText}`,
-        };
+        throw new Error(`HTTP ${response.status}: ${responseText}`);
       }
 
       let result;
       try {
         result = JSON.parse(responseText);
       } catch (_e) {
-        return {
-          success: false,
-          error: `Failed to parse response: ${responseText}`,
-        };
+        throw new Error(`Failed to parse response: ${responseText}`)
       }
 
       if (result.error) {
         logger.debug(`MCP error: ${JSON.stringify(result.error)}`);
-        return {
-          success: false,
-          error: result.error.message || 'Unknown error',
-        };
+        throw new Error(result.error.message || 'Unknown error');
       }
 
       logger.debug(`MCP response result:`, JSON.stringify(result.result, null, 2));
       
-      return {
-        success: true,
-        data: result.result,
-      };
+      return result.result;
     } catch (error) {
       logger.error(`MCP call failed: ${error}`);
       if (error instanceof Error && error.name === 'AbortError') {
-        return {
-          success: false,
-          error: 'Request timed out after 30 seconds',
-        };
+        throw new Error('Request timed out after 30 seconds');
       }
+      throw error;
+    }
+  }
+
+  /**
+   * Call an MCP tool with error handling that returns success/error format
+   * Used by docsSync and other commands that need structured error handling
+   */
+  async callToolSafe(toolName: string, params: any): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const result = await this.callTool(toolName, params);
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
