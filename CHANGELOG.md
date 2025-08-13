@@ -1,4 +1,10 @@
-## [1.0.8] - 2025-08-13
+## [1.0.9] - 2025-08-13
+
+### Changes
+
+- fix: tests (daeac3f)
+- Merge branch 'main' of https://github.com/veas-org/veas-cli (10b5e3f)
+
 
 ### Changes
 
