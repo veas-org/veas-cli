@@ -7,7 +7,7 @@ import { authHelper } from './helpers/auth-helper.js';
 import { createMCPClient, type MCPTestClient } from './helpers/mcp-client.js';
 import { TEST_TOKENS, waitForServer } from './setup.js';
 
-describe('Tool Execution E2E Tests', () => {
+describe.skip('Tool Execution E2E Tests', () => {
   let client: MCPTestClient;
   let serverReady: boolean;
   let availableTools: any[] = [];

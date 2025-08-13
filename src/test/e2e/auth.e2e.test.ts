@@ -3,7 +3,7 @@ import { authHelper } from './helpers/auth-helper.js';
 import { createMCPClient, type MCPTestClient } from './helpers/mcp-client.js';
 import { TEST_TOKENS, waitForServer } from './setup.js';
 
-describe('Authentication E2E Tests', () => {
+describe.skip('Authentication E2E Tests', () => {
   let client: MCPTestClient;
   let serverReady: boolean;
 

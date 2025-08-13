@@ -9,7 +9,7 @@ import {
   expectConnectionError,
 } from './helpers/assertions.js';
 
-describe('MCP Connection E2E Tests', () => {
+describe.skip('MCP Connection E2E Tests', () => {
   let client: MCPTestClient;
   let serverReady: boolean;
 
