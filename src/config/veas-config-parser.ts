@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
 import * as path from 'path'
 import * as yaml from 'js-yaml'
 import { logger } from '../utils/logger.js'
@@ -96,6 +97,7 @@ const DEFAULT_CONFIG: Partial<VeasConfig> = {
 export class VeasConfigParser {
   private configPath: string
   private config?: VeasConfig
+  private static instance: VeasConfigParser
 
   constructor(configPath?: string) {
     // If no config path provided, search for it
@@ -117,12 +119,12 @@ export class VeasConfigParser {
       const candidatePath = path.join(currentDir, configFileName)
       try {
         // Check if file exists
-        const stats = require('fs').statSync(candidatePath)
+        const stats = fsSync.statSync(candidatePath)
         if (stats.isFile()) {
           logger.debug(`Found config file at: ${candidatePath}`)
           return candidatePath
         }
-      } catch (e) {
+      } catch (_e) {
         // File doesn't exist, continue searching
       }
       currentDir = path.dirname(currentDir)
@@ -190,7 +192,7 @@ export class VeasConfigParser {
             ...DEFAULT_CONFIG.sync?.metadata?.defaults,
             ...userConfig.sync.metadata?.defaults,
           },
-        } : DEFAULT_CONFIG.sync?.metadata!,
+        } : DEFAULT_CONFIG.sync?.metadata,
         watch: {
           ...DEFAULT_CONFIG.sync?.watch,
           ...userConfig.sync?.watch,
@@ -465,5 +467,83 @@ sync:
 
     await fs.writeFile(configPath, sampleConfig, 'utf8')
     logger.info(`Created sample configuration file at ${configPath}`)
+  }
+
+  /**
+   * Get singleton instance
+   */
+  static getInstance(configPath?: string): VeasConfigParser {
+    if (!VeasConfigParser.instance) {
+      VeasConfigParser.instance = new VeasConfigParser(configPath)
+    }
+    return VeasConfigParser.instance
+  }
+
+  /**
+   * Save configuration to file
+   */
+  async save(config?: VeasConfig): Promise<void> {
+    const configToSave = config || this.config
+    if (!configToSave) {
+      throw new Error('No configuration to save')
+    }
+    
+    const yamlContent = yaml.dump(configToSave, {
+      indent: 2,
+      lineWidth: 120,
+      sortKeys: false,
+    })
+    
+    await fs.writeFile(this.configPath, yamlContent, 'utf8')
+    logger.debug(`Configuration saved to ${this.configPath}`)
+  }
+
+  /**
+   * Get publication configuration
+   */
+  getPublication(): VeasConfigPublication | undefined {
+    if (!this.config) {
+      throw new Error('Configuration not loaded')
+    }
+    return this.config.publication
+  }
+
+  /**
+   * Get sync configuration
+   */
+  getSyncConfig(): VeasConfigSync {
+    if (!this.config) {
+      throw new Error('Configuration not loaded')
+    }
+    return this.config.sync
+  }
+
+  /**
+   * Resolve glob patterns for all roots
+   */
+  async resolveGlobs(): Promise<string[]> {
+    if (!this.config) {
+      throw new Error('Configuration not loaded')
+    }
+    
+    const files: string[] = []
+    
+    for (const root of this.config.sync.roots || []) {
+      const rootPath = path.resolve(root.path)
+      const include = root.include || this.config.sync.include || ['**/*.md']
+      const exclude = root.exclude || this.config.sync.exclude || []
+      
+      // Use fast-glob to resolve patterns
+      const glob = await import('fast-glob')
+      const matches = await glob.default(include, {
+        cwd: rootPath,
+        ignore: exclude,
+        absolute: true,
+      })
+      
+      files.push(...matches)
+    }
+    
+    return files
   }
 }

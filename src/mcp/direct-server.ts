@@ -193,7 +193,7 @@ export class DirectMCPServer {
       let responseData: any;
       try {
         responseData = JSON.parse(responseText);
-      } catch (e) {
+      } catch (_e) {
         logger.error(`Failed to parse response: ${responseText}`);
         throw new Error('Invalid JSON response from server');
       }

@@ -79,7 +79,7 @@ export async function waitForServer(url: string = E2E_CONFIG.apiUrl, maxAttempts
         console.log('✅ Server is ready');
         return true;
       }
-    } catch (error) {
+    } catch (_error) {
       // Server not ready yet
     }
     

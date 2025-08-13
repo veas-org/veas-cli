@@ -41,7 +41,7 @@ export class AuthManager {
   private async ensureConfigDir() {
     try {
       await fs.mkdir(this.configDir, { recursive: true });
-    } catch (error) {
+    } catch (_error) {
       // Directory might already exist
     }
   }
@@ -174,7 +174,7 @@ export class AuthManager {
           );
           user = validateResponse.data.user;
           logger.debug('Got user info from validate endpoint');
-        } catch (validateError: any) {
+        } catch (_validateError: any) {
           // If validate endpoint doesn't exist, try alternate endpoints
           logger.debug('Validate endpoint not available, trying /api/auth/me');
           try {
@@ -188,7 +188,7 @@ export class AuthManager {
             );
             user = meResponse.data;
             logger.debug('Got user info from /api/auth/me');
-          } catch (meError: any) {
+          } catch (_meError: any) {
             // Last resort: create a minimal user object
             logger.warn('No user info endpoints available, using placeholder user');
             user = {
@@ -223,7 +223,7 @@ export class AuthManager {
     try {
       await fs.unlink(this.authFile);
       logger.debug('Logged out successfully');
-    } catch (error) {
+    } catch (_error) {
       // File might not exist
     }
   }
@@ -241,7 +241,7 @@ export class AuthManager {
       }
 
       return session;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

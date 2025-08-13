@@ -2,6 +2,7 @@ import { confirm, spinner, text } from '@clack/prompts'
 import * as crypto from 'crypto'
 import glob from 'fast-glob'
 import * as fs from 'fs/promises'
+import * as yaml from 'js-yaml'
 import * as path from 'path'
 import pc from 'picocolors'
 import { AuthManager } from '../auth/auth-manager.js'
@@ -539,10 +540,9 @@ class DocsSyncer {
       const frontMatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
       if (frontMatterMatch) {
         try {
-          const yaml = require('js-yaml')
-          const frontMatter = yaml.load(frontMatterMatch[1]) as any
+          const frontMatter = yaml.load(frontMatterMatch[1] || '') as any
           Object.assign(metadata, frontMatter)
-        } catch (error) {
+        } catch (_error) {
           logger.warn(`Failed to parse front matter in ${relativePath}`)
         }
       }
@@ -817,7 +817,7 @@ class DocsSyncer {
               }
             })
           }
-        } catch (error) {
+        } catch (_error) {
           // Tag might already exist, continue
         }
       }

@@ -140,7 +140,7 @@ export class OAuthDeviceFlow {
 
     try {
       await execAsync(command);
-    } catch (error) {
+    } catch (_error) {
       // If opening browser fails, just show the URL
       logger.warn('Could not open browser automatically.');
       logger.info(pc.cyan('Please visit this URL to authenticate:'));

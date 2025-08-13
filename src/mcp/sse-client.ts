@@ -1,5 +1,81 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { prepareMCPHeaders, type AuthToken, getBestAuthToken } from './auth-wrapper.js';
+import { EventEmitter } from 'events';
+
+/**
+ * SSEClient class for Server-Sent Events
+ */
+export class SSEClient extends EventEmitter {
+  private url: string;
+  private eventSource: EventSource | null = null;
+  private options: any;
+  private isConnected: boolean = false;
+
+  constructor(url: string, options?: any) {
+    super();
+    this.url = url;
+    this.options = options || {};
+  }
+
+  connect(): void {
+    if (this.isConnected) return;
+    
+    this.eventSource = new EventSource(this.url, this.options);
+    
+    this.eventSource.onopen = () => {
+      this.isConnected = true;
+      this.emit('open');
+    };
+    
+    this.eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.emit('message', data);
+      } catch (error) {
+        this.emit('error', new Error('Failed to parse message'));
+      }
+    };
+    
+    this.eventSource.onerror = (error) => {
+      this.emit('error', error);
+      // Attempt reconnection logic could go here
+    };
+
+    // Handle custom event types
+    this.eventSource.addEventListener('custom', (event: any) => {
+      this.emit('custom', event.data);
+    });
+  }
+
+  disconnect(): void {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+      this.isConnected = false;
+      this.emit('close');
+    }
+  }
+
+  async send(data: any): Promise<void> {
+    // Send data to server via fetch
+    const response = await fetch(this.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.options.headers,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send data: ${response.statusText}`);
+    }
+  }
+
+  get readyState(): number {
+    return this.eventSource?.readyState ?? EventSource.CLOSED;
+  }
+}
 
 /**
  * Get MCP tools using SSE transport

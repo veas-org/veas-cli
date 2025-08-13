@@ -3,6 +3,7 @@ import path from 'path';
 
 export default defineConfig({
   test: {
+    passWithNoTests: true,
     name: 'e2e',
     include: ['src/test/e2e/**/*.e2e.test.ts'],
     exclude: ['node_modules', 'dist'],

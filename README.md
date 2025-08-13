@@ -1,10 +1,13 @@
 # Veas CLI
 
+[![CI/CD Pipeline](https://github.com/veas-org/veas-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/veas-org/veas-cli/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/veas.svg)](https://www.npmjs.com/package/veas)
 [![npm downloads](https://img.shields.io/npm/dm/veas.svg)](https://www.npmjs.com/package/veas)
+[![Coverage Status](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fveas-org%2Fveas-cli%2Fmain%2Fcoverage%2Fcoverage-summary.json&query=%24.total.lines.pct&suffix=%25&label=coverage&color=brightgreen)](https://github.com/veas-org/veas-cli/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/veas-org/veas-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/veas-org/veas-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/node/v/veas.svg)](https://nodejs.org)
-[![Protocol Version](https://img.shields.io/badge/protocol-v0.1.6-blue)](https://www.npmjs.com/package/@veas/protocol)
+[![Protocol Version](https://img.shields.io/badge/protocol-v0.1.8-blue)](https://www.npmjs.com/package/@veas/protocol)
 
 **Universal CLI for Knowledge Management Systems with AI Integration**
 

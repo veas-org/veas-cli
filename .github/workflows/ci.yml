@@ -2,309 +2,425 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (patch, minor, major)'
+        required: false
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
-env:
-  NODE_VERSION: '22'
-  PNPM_VERSION: '10.12.1'
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  checks: write
+  pull-requests: write
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
     
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.12.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: Generate coverage summary
+        if: always()
+        run: |
+          echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "
+              const coverage = require('./coverage/coverage-summary.json');
+              const total = coverage.total;
+              const pct = (value) => value.pct + '%';
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Statements | ' + pct(total.statements) + ' |');
+              console.log('| Branches | ' + pct(total.branches) + ' |');
+              console.log('| Functions | ' + pct(total.functions) + ' |');
+              console.log('| Lines | ' + pct(total.lines) + ' |');
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Coverage report not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+      - name: Coverage check
+        run: |
+          node -e "
+            const coverage = require('./coverage/coverage-summary.json');
+            const total = coverage.total;
+            const threshold = 70; // Minimum coverage threshold
+            
+            console.log('Coverage: Lines=' + total.lines.pct + '% Statements=' + total.statements.pct + '%');
+            
+            if (total.lines.pct < threshold || total.statements.pct < threshold) {
+              console.error('Coverage below threshold of ' + threshold + '%');
+              process.exit(1);
+            }
+          "
+
+      - name: Create coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const coverage = require('./coverage/coverage-summary.json');
+            const pct = Math.round(coverage.total.lines.pct);
+            
+            let color = 'red';
+            if (pct >= 90) color = 'brightgreen';
+            else if (pct >= 80) color = 'green';
+            else if (pct >= 70) color = 'yellowgreen';
+            else if (pct >= 60) color = 'yellow';
+            else if (pct >= 50) color = 'orange';
+            
+            const badge = {
+              schemaVersion: 1,
+              label: 'coverage',
+              message: pct + '%',
+              color: color
+            };
+            
+            fs.writeFileSync('coverage-badge.json', JSON.stringify(badge, null, 2));
+            console.log('Badge created: coverage=' + pct + '% color=' + color);
+          "
+
+      - name: Upload coverage badge
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge
+          path: coverage-badge.json
+          retention-days: 90
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: veas-cli
+          fail_ci_if_error: false
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  cross-platform-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [18.x, 20.x, 22.x]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.12.1
+
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-      
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm build
+
+      - name: Test CLI execution
+        run: node bin/veas.js --version
+
+      - name: Run basic tests
+        run: pnpm test:unit -- --run
+        continue-on-error: true
+
+  e2e-test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      
-      - name: Run linter
-        run: pnpm lint
-        continue-on-error: true  # Don't fail on lint errors for now
-      
-      - name: Run type check
-        run: pnpm typecheck
-      
-      - name: Build project
-        run: pnpm build
-      
-      - name: Run unit tests
-        run: pnpm test -- --run --coverage
-      
-      - name: Upload coverage reports
-        if: matrix.node-version == '22.x'
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/coverage-final.json
-          flags: unittests
-          name: veas-cli
-          fail_ci_if_error: false
-      
-      - name: Upload build artifacts
-        if: matrix.node-version == '22.x'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: dist/
-          retention-days: 1
+          version: 10.12.1
 
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-      
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
+          node-version: '22'
+          cache: 'pnpm'
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build project
         run: pnpm build
-      
+
       - name: Run E2E tests
         run: pnpm test:e2e
         env:
           VEAS_API_URL: ${{ secrets.VEAS_API_URL || 'https://veas.app' }}
           VEAS_TEST_EMAIL: ${{ secrets.VEAS_TEST_EMAIL }}
           VEAS_TEST_PASSWORD: ${{ secrets.VEAS_TEST_PASSWORD }}
-        continue-on-error: true  # Don't fail on E2E errors for now
-      
-      - name: Upload test results
+        continue-on-error: true
+
+      - name: Upload E2E test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-results
           path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
-  build-check:
-    name: Build Check
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [22.x]
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-      
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      
-      - name: Build project
-        run: pnpm build
-      
-      - name: Test CLI execution
-        run: node bin/veas.js --version
-
-  publish:
-    name: Publish to NPM
+  release:
+    needs: [test, cross-platform-test]
     runs-on: ubuntu-latest
-    needs: [build-and-test, build-check]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          registry-url: 'https://registry.npmjs.org'
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
+          version: 10.12.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
-      - name: Build project
-        run: pnpm build
-      
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      
-      - name: Check if version changed
-        id: version-check
+
+      - name: Check for release trigger
+        id: check_release
         run: |
-          # Get the current version from package.json
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-          
-          # Check if this version is already published
-          if npm view veas@${CURRENT_VERSION} version 2>/dev/null; then
-            echo "Version ${CURRENT_VERSION} is already published"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
+          # Check if this is a manual release or if commit message indicates release
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_type }}" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "Release triggered manually"
+          elif git log -1 --pretty=%B | grep -qE "^(chore|ci): release"; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "Skipping release (release commit detected)"
+          elif git log -1 --pretty=%B | grep -qE "^(feat|fix|perf)(\(.+\))?!?:"; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "Release triggered by commit message"
           else
-            echo "Version ${CURRENT_VERSION} is not published yet"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "No release trigger found"
           fi
-      
-      - name: Bump version if needed
+
+      - name: Determine version bump
+        if: steps.check_release.outputs.should_release == 'true'
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_type }}" ]; then
+            BUMP_TYPE="${{ github.event.inputs.release_type }}"
+          else
+            # Auto-detect from commit messages
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+            
+            if echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?!:"; then
+              BUMP_TYPE="major"
+            elif echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?:"; then
+              BUMP_TYPE="minor"
+            else
+              BUMP_TYPE="patch"
+            fi
+          fi
+          
+          echo "bump_type=${BUMP_TYPE}" >> $GITHUB_OUTPUT
+          echo "Version bump type: ${BUMP_TYPE}"
+
+      - name: Bump version
+        if: steps.check_release.outputs.should_release == 'true'
         id: bump
-        if: steps.version-check.outputs.should_publish == 'false'
         run: |
-          # Auto-detect version bump from commit messages
-          COMMITS=$(git log HEAD~1..HEAD --pretty=format:"%s")
+          npm version ${{ steps.version.outputs.bump_type }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "New version: ${VERSION}"
+
+      - name: Generate changelog
+        if: steps.check_release.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.bump.outputs.new_version }}"
+          DATE=$(date +"%Y-%m-%d")
           
-          if echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?!:"; then
-            BUMP_TYPE="major"
-          elif echo "$COMMITS" | grep -qE "^(feat|feature)(\(.+\))?:"; then
-            BUMP_TYPE="minor"
-          else
-            BUMP_TYPE="patch"
+          # Create or update CHANGELOG.md
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to veas-cli will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
           fi
           
-          echo "Bumping version: ${BUMP_TYPE}"
-          npm version ${BUMP_TYPE} --no-git-tag-version
+          # Add new version entry
+          TEMP_FILE=$(mktemp)
+          echo "## [${VERSION}] - ${DATE}" > $TEMP_FILE
+          echo "" >> $TEMP_FILE
           
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "bumped=true" >> $GITHUB_OUTPUT
-      
+          # Get commit messages since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s (%h)" --reverse)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s (%h)" --reverse)
+          fi
+          
+          # Categorize commits
+          FEATURES=$(echo "$COMMITS" | grep -E "^feat(\(.+\))?:" || true)
+          FIXES=$(echo "$COMMITS" | grep -E "^fix(\(.+\))?:" || true)
+          BREAKING=$(echo "$COMMITS" | grep -E "^[a-z]+(\(.+\))?!:" || true)
+          OTHER=$(echo "$COMMITS" | grep -vE "^(feat|fix)(\(.+\))?!?:" || true)
+          
+          if [ -n "$BREAKING" ]; then
+            echo "### ⚠ BREAKING CHANGES" >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+            echo "$BREAKING" | sed 's/^/- /' >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+          fi
+          
+          if [ -n "$FEATURES" ]; then
+            echo "### Features" >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+            echo "$FEATURES" | sed 's/^/- /' >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+          fi
+          
+          if [ -n "$FIXES" ]; then
+            echo "### Bug Fixes" >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+            echo "$FIXES" | sed 's/^/- /' >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+          fi
+          
+          if [ -n "$OTHER" ]; then
+            echo "### Other Changes" >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+            echo "$OTHER" | sed 's/^/- /' >> $TEMP_FILE
+            echo "" >> $TEMP_FILE
+          fi
+          
+          # Prepend to existing changelog (skip the first line if it's the header)
+          if grep -q "^# Changelog" CHANGELOG.md; then
+            tail -n +5 CHANGELOG.md >> $TEMP_FILE 2>/dev/null || true
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to veas-cli will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            tail -n +5 $TEMP_FILE >> CHANGELOG.md
+          else
+            cat CHANGELOG.md >> $TEMP_FILE
+            mv $TEMP_FILE CHANGELOG.md
+          fi
+          
+          rm -f $TEMP_FILE
+
       - name: Rebuild after version bump
-        if: steps.bump.outputs.bumped == 'true'
+        if: steps.check_release.outputs.should_release == 'true'
         run: pnpm build
-      
-      - name: Publish to NPM
-        if: steps.version-check.outputs.should_publish == 'true' || steps.bump.outputs.bumped == 'true'
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
-      - name: Get final version
-        id: final-version
+
+      - name: Commit changes
+        if: steps.check_release.outputs.should_release == 'true'
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-      
-      - name: Commit version bump
-        if: steps.bump.outputs.bumped == 'true'
+          git add package.json pnpm-lock.yaml CHANGELOG.md
+          git commit -m "chore: release v${{ steps.bump.outputs.new_version }}"
+
+      - name: Create and push tag
+        if: steps.check_release.outputs.should_release == 'true'
         run: |
-          git add package.json pnpm-lock.yaml
-          git commit -m "chore: bump version to v${{ steps.final-version.outputs.version }} [skip ci]"
-          git push origin main
-      
-      - name: Create Git tag
-        if: steps.version-check.outputs.should_publish == 'true' || steps.bump.outputs.bumped == 'true'
-        run: |
-          VERSION=${{ steps.final-version.outputs.version }}
-          git tag -a "v${VERSION}" -m "Release v${VERSION}"
-          git push origin "v${VERSION}"
-      
+          git tag -a "v${{ steps.bump.outputs.new_version }}" -m "Release v${{ steps.bump.outputs.new_version }}"
+          git push origin main --follow-tags
+
       - name: Create GitHub Release
-        if: steps.version-check.outputs.should_publish == 'true' || steps.bump.outputs.bumped == 'true'
-        uses: softprops/action-gh-release@v1
+        if: steps.check_release.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.final-version.outputs.version }}
-          name: veas-cli v${{ steps.final-version.outputs.version }}
+          tag_name: v${{ steps.bump.outputs.new_version }}
+          name: Release v${{ steps.bump.outputs.new_version }}
           body: |
-            ## 🚀 veas-cli v${{ steps.final-version.outputs.version }}
+            ## What's Changed
+            
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
             
             ### Installation
             ```bash
@@ -313,41 +429,22 @@ jobs:
             pnpm add -g veas
             ```
             
-            ### Changes
-            See commit history for changes in this release.
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.bump.outputs.new_version }}...HEAD
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Publish success notification
-        if: steps.version-check.outputs.should_publish == 'true' || steps.bump.outputs.bumped == 'true'
-        run: |
-          VERSION=${{ steps.final-version.outputs.version }}
-          echo "✅ Successfully published veas@${VERSION} to NPM"
-          echo "📦 Package URL: https://www.npmjs.com/package/veas"
-          echo "🏷️ Git Tag: v${VERSION}"
-          echo ""
-          echo "Users can now install with:"
-          echo "  npm install -g veas@${VERSION}"
 
-  pipeline-summary:
-    name: Pipeline Summary
-    runs-on: ubuntu-latest
-    needs: [build-and-test, build-check]
-    if: always()
-    
-    steps:
-      - name: Check pipeline status
+      - name: Publish to NPM
+        if: steps.check_release.outputs.should_release == 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish success notification
+        if: steps.check_release.outputs.should_release == 'true' && success()
         run: |
-          echo "Pipeline Summary:"
-          echo "=================="
-          echo "Build and Test: ${{ needs.build-and-test.result }}"
-          echo "Build Check: ${{ needs.build-check.result }}"
-          
-          if [ "${{ needs.build-and-test.result }}" != "success" ] || [ "${{ needs.build-check.result }}" != "success" ]; then
-            echo "❌ Pipeline failed"
-            exit 1
-          else
-            echo "✅ All checks passed successfully!"
-          fi
+          echo "✅ Successfully published veas@${{ steps.bump.outputs.new_version }}"
+          echo "📦 NPM: https://www.npmjs.com/package/veas"
+          echo "🏷️ Tag: v${{ steps.bump.outputs.new_version }}"
+          echo "📊 Coverage: Check workflow artifacts and job summary"

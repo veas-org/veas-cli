@@ -21,7 +21,7 @@ export class E2EAuthHelper {
   async saveAuthState(): Promise<void> {
     try {
       this.originalCredentials = await this.authManager.getCredentials();
-    } catch (error) {
+    } catch (_error) {
       // No credentials to save
       this.originalCredentials = undefined;
     }
@@ -58,7 +58,7 @@ export class E2EAuthHelper {
   /**
    * Set a specific token for testing
    */
-  async setTestToken(token: string, type: 'pat' | 'cli' = 'cli'): Promise<void> {
+  async setTestToken(token: string, _type: 'pat' | 'cli' = 'cli'): Promise<void> {
     const credentials: AuthCredentials = {
       type: 'token',
       token,
@@ -145,7 +145,7 @@ export class E2EAuthHelper {
       throw new Error('Failed to start device auth flow');
     }
 
-    const { device_code, user_code, verification_uri } = await deviceResponse.json();
+    const { device_code, user_code } = await deviceResponse.json();
 
     // In a real test, you would automate the browser flow
     // For E2E testing, we'll simulate the approval
@@ -207,7 +207,7 @@ export class E2EAuthHelper {
       });
 
       return response.ok;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
