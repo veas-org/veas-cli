@@ -1,4 +1,12 @@
-## [1.0.9] - 2025-08-13
+## [1.0.10] - 2025-08-15
+
+### Changes
+
+- fix: continue fixing tests (ec65b68)
+- Merge branch 'main' of https://github.com/veas-org/veas-cli (1037ab7)
+- fix: skip e2e tests (74956cb)
+- fix: lint (ca4db7d)
+
 
 ### Changes
 
