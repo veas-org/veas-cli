@@ -126,7 +126,7 @@ export async function testMCPConnection(): Promise<void> {
     const text = await response.text();
     
     // Parse event stream data
-    let result: any;
+    let result: { error?: { message: string }; result?: { tools?: Array<{ name: string; description: string }> } } | undefined;
     if (text.startsWith('event:')) {
       // Extract JSON from event stream
       const lines = text.split('\n');
@@ -139,19 +139,24 @@ export async function testMCPConnection(): Promise<void> {
       result = JSON.parse(text);
     }
     
-    if (result?.error) {
+    if (!result) {
+      logger.error('Failed to parse MCP response');
+      process.exit(1);
+    }
+    
+    if (result.error) {
       logger.error(`MCP error: ${result.error.message}`);
       process.exit(1);
     }
 
-    const tools = result?.result?.tools || [];
+    const tools = result.result?.tools || [];
     logger.info(pc.green(`✓ MCP connection successful!`));
     logger.info(`Found ${tools.length} available tools`);
     
     if (tools.length > 0) {
       console.log('');
       console.log(pc.bold('Sample tools:'));
-      tools.slice(0, 5).forEach((tool: any) => {
+      tools.slice(0, 5).forEach((tool: { name: string; description: string }) => {
         console.log(`  - ${pc.cyan(tool.name)}: ${tool.description}`);
       });
       if (tools.length > 5) {
@@ -175,7 +180,7 @@ export async function testConnection(): Promise<void> {
   try {
     const authManager = AuthManager.getInstance();
     const credentials = await authManager.getCredentials();
-    const token = (credentials as any)?.accessToken || credentials?.token || await authManager.getToken();
+    const token = (credentials as { accessToken?: string; token?: string })?.accessToken || credentials?.token || await authManager.getToken();
     
     if (!token) {
       s.stop(pc.red('Authentication failed'));
@@ -214,7 +219,7 @@ export async function testConnection(): Promise<void> {
       process.exit(1);
     }
 
-    const result = await response.json();
+    const result = await response.json() as { error?: { message: string }; result?: { serverInfo?: { name: string; version: string } } };
     
     if (result?.error) {
       s.stop(pc.red('Connection failed'));
@@ -244,7 +249,7 @@ export async function listProjects(options?: { limit?: number; offset?: number }
     const authManager = AuthManager.getInstance();
     await authManager.ensureAuthenticated();
     const credentials = await authManager.getCredentials();
-    const token = (credentials as any)?.accessToken || credentials?.token || await authManager.getToken();
+    const token = (credentials as { accessToken?: string; token?: string })?.accessToken || credentials?.token || await authManager.getToken();
     
     const apiUrl = process.env.VEAS_API_URL || 'https://veas.app';
     const params = new URLSearchParams();
@@ -264,7 +269,7 @@ export async function listProjects(options?: { limit?: number; offset?: number }
       process.exit(1);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { projects?: Array<{ name: string; description?: string }> };
     const projects = data?.projects || [];
     
     s.stop(pc.green(`Found ${projects.length} projects`));
@@ -272,7 +277,7 @@ export async function listProjects(options?: { limit?: number; offset?: number }
     if (projects.length === 0) {
       logger.info(pc.yellow('No projects found'));
     } else {
-      projects.forEach((project: any) => {
+      projects.forEach((project: { name: string; description?: string }) => {
         logger.info(`- ${pc.cyan(project.name)}: ${project.description || 'No description'}`);
       });
     }
@@ -291,18 +296,19 @@ export async function createIssue(data?: { projectId?: string; title?: string; d
     const authManager = AuthManager.getInstance();
     await authManager.ensureAuthenticated();
     const credentials = await authManager.getCredentials();
-    const token = (credentials as any)?.accessToken || credentials?.token || await authManager.getToken();
+    const token = (credentials as { accessToken?: string; token?: string })?.accessToken || credentials?.token || await authManager.getToken();
     
     // Get input if not provided
     let projectId = data?.projectId;
     let title = data?.title;
-    let description = data?.description;
+    const description = data?.description;
     
     if (!projectId) {
       const input = await text({
         message: 'Project ID:',
         validate: (value) => {
           if (!value) return 'Project ID is required';
+          return undefined;
         },
       });
       if (typeof input === 'symbol') {
@@ -317,6 +323,7 @@ export async function createIssue(data?: { projectId?: string; title?: string; d
         message: 'Issue title:',
         validate: (value) => {
           if (!value) return 'Title is required';
+          return undefined;
         },
       });
       if (typeof input === 'symbol') {
@@ -345,7 +352,7 @@ export async function createIssue(data?: { projectId?: string; title?: string; d
       process.exit(1);
     }
 
-    const issue = await response.json();
+    const issue = await response.json() as any;
     s.stop(pc.green(`✓ Issue created: ${issue.key}`));
   } catch (error) {
     s.stop(pc.red('Failed'));

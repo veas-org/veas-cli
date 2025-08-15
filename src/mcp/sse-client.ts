@@ -2,21 +2,8 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { prepareMCPHeaders, type AuthToken, getBestAuthToken } from './auth-wrapper.js';
 import { EventEmitter } from 'events';
 
-// EventSource is a browser API, we declare it for TypeScript
-declare global {
-  class EventSource {
-    constructor(url: string, options?: any);
-    onopen: ((event: any) => void) | null;
-    onmessage: ((event: any) => void) | null;
-    onerror: ((event: any) => void) | null;
-    close(): void;
-    addEventListener(type: string, listener: (event: any) => void): void;
-    readyState: number;
-    static readonly CONNECTING: number;
-    static readonly OPEN: number;
-    static readonly CLOSED: number;
-  }
-}
+// EventSource is now globally available in Node.js 18+
+// No need to declare it anymore as it conflicts with Node.js types
 
 /**
  * SSEClient class for Server-Sent Events

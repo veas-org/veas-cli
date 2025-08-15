@@ -60,7 +60,7 @@ export class MCPClient {
       throw new Error(`Initialization failed: ${response.statusText}`);
     }
 
-    const result = await response.json();
+    const result = await response.json() as any;
     if (result?.error) {
       throw new Error(result.error.message);
     }
