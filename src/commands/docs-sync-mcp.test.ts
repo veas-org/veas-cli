@@ -25,8 +25,8 @@ const mockMCPClient = {
 
 vi.mock('../mcp/mcp-client', () => ({
   MCPClient: {
-    getInstance: vi.fn(() => mockMCPClient)
-  }
+    getInstance: vi.fn(() => mockMCPClient),
+  },
 }))
 
 // Mock process.exit to not actually exit
@@ -42,20 +42,20 @@ describe('DocsSync Command', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Mock stdout.isTTY
     Object.defineProperty(process.stdout, 'isTTY', {
       value: true,
       writable: true,
-      configurable: true
+      configurable: true,
     })
 
     mockAuthManager = {
       getSession: vi.fn().mockResolvedValue({
         token: 'test-token',
-        user: { id: 'test-user', email: 'test@example.com' }
+        user: { id: 'test-user', email: 'test@example.com' },
       }),
     }
     vi.mocked(AuthManager).getInstance.mockReturnValue(mockAuthManager)
@@ -68,20 +68,22 @@ describe('DocsSync Command', () => {
         slug: 'test-pub',
       },
       sync: {
-        roots: [{
-          path: './docs',
-          include: ['**/*.md'],
-        }],
+        roots: [
+          {
+            path: './docs',
+            include: ['**/*.md'],
+          },
+        ],
       },
     }
-    
+
     mockConfigParser = {
       load: vi.fn().mockResolvedValue(mockConfig),
       getSyncRoots: vi.fn().mockReturnValue([
         {
           root: { path: './docs', include: ['**/*.md'] },
-          absolutePath: '/project/docs'
-        }
+          absolutePath: '/project/docs',
+        },
       ]),
       getSyncConfig: vi.fn().mockReturnValue(mockConfig.sync),
       getPublication: vi.fn().mockReturnValue(mockConfig.publication),
@@ -89,7 +91,7 @@ describe('DocsSync Command', () => {
       getRemoteFolder: vi.fn().mockReturnValue(undefined),
       configPath: '/project/.veas-config.yaml',
     }
-    
+
     vi.mocked(VeasConfigParser).mockImplementation(() => mockConfigParser)
 
     // Reset MCPClient mocks
@@ -107,13 +109,15 @@ describe('DocsSync Command', () => {
         return Promise.resolve({
           success: true,
           data: {
-            publications: [{
-              id: 'pub-123',
-              name: 'Test Publication',
-              slug: 'test-pub'
-            }],
-            total: 1
-          }
+            publications: [
+              {
+                id: 'pub-123',
+                name: 'Test Publication',
+                slug: 'test-pub',
+              },
+            ],
+            total: 1,
+          },
         })
       }
       if (toolName === 'list_folders') {
@@ -121,8 +125,8 @@ describe('DocsSync Command', () => {
           success: true,
           data: {
             folders: [],
-            total: 0
-          }
+            total: 0,
+          },
         })
       }
       if (toolName === 'mcp-articles_list_articles') {
@@ -130,14 +134,14 @@ describe('DocsSync Command', () => {
           success: true,
           data: {
             articles: [],
-            total: 0
-          }
+            total: 0,
+          },
         })
       }
       // Default successful response for any unexpected calls
       return Promise.resolve({
         success: true,
-        data: {}
+        data: {},
       })
     })
 
@@ -187,13 +191,15 @@ describe('DocsSync Command', () => {
           return Promise.resolve({
             success: true,
             data: {
-              publications: [{
-                id: 'pub-123',
-                name: 'Test Publication',
-                slug: 'test-pub'
-              }],
-              total: 1
-            }
+              publications: [
+                {
+                  id: 'pub-123',
+                  name: 'Test Publication',
+                  slug: 'test-pub',
+                },
+              ],
+              total: 1,
+            },
           })
         }
         if (toolName === 'list_folders') {
@@ -201,8 +207,8 @@ describe('DocsSync Command', () => {
             success: true,
             data: {
               folders: [],
-              total: 0
-            }
+              total: 0,
+            },
           })
         }
         if (toolName === 'mcp-articles_list_articles') {
@@ -210,14 +216,14 @@ describe('DocsSync Command', () => {
             success: true,
             data: {
               articles: [],
-              total: 0
-            }
+              total: 0,
+            },
           })
         }
         // Default response for any other tool
         return Promise.resolve({
           success: true,
-          data: {}
+          data: {},
         })
       })
 
@@ -247,12 +253,14 @@ describe('DocsSync Command', () => {
       // First call will fail with API Error
       mockMCPClient.callToolSafe.mockResolvedValueOnce({
         success: false,
-        error: 'API Error'
+        error: 'API Error',
       })
 
-      await expect(docsSync({
-        folder: './docs',
-      })).rejects.toThrow('process.exit(1)')
+      await expect(
+        docsSync({
+          folder: './docs',
+        }),
+      ).rejects.toThrow('process.exit(1)')
 
       // Check that any error was logged
       expect(logger.error).toHaveBeenCalled()
@@ -261,9 +269,11 @@ describe('DocsSync Command', () => {
     it.skip('should handle missing session', async () => {
       mockAuthManager.getSession.mockResolvedValueOnce(null)
 
-      await expect(docsSync({
-        folder: './docs',
-      })).rejects.toThrow('process.exit(1)')
+      await expect(
+        docsSync({
+          folder: './docs',
+        }),
+      ).rejects.toThrow('process.exit(1)')
 
       expect(logger.error).toHaveBeenCalledWith('Not logged in. Please run "veas login" first.')
     })
@@ -280,9 +290,11 @@ describe('DocsSync Command', () => {
     it.skip('should handle config file errors', async () => {
       mockConfigParser.load.mockRejectedValueOnce(new Error('Config parse error'))
 
-      await expect(docsSync({
-        folder: './docs',
-      })).rejects.toThrow('process.exit(1)')
+      await expect(
+        docsSync({
+          folder: './docs',
+        }),
+      ).rejects.toThrow('process.exit(1)')
 
       expect(logger.error).toHaveBeenCalledWith('Sync failed: Config parse error')
     })
@@ -292,37 +304,42 @@ describe('DocsSync Command', () => {
         on: vi.fn().mockReturnThis(),
         close: vi.fn(),
       }
-      
+
       vi.doMock('chokidar', () => ({
-        watch: vi.fn().mockReturnValue(mockWatcher)
+        watch: vi.fn().mockReturnValue(mockWatcher),
       }))
 
       // Mock the MCP tool calls
       mockMCPClient.callTool
-        .mockResolvedValueOnce({ // mcp-articles_list_publications
+        .mockResolvedValueOnce({
+          // mcp-articles_list_publications
           success: true,
           data: {
-            publications: [{
-              id: 'pub-123',
-              name: 'Test Publication',
-              slug: 'test-pub'
-            }],
-            total: 1
-          }
+            publications: [
+              {
+                id: 'pub-123',
+                name: 'Test Publication',
+                slug: 'test-pub',
+              },
+            ],
+            total: 1,
+          },
         })
-        .mockResolvedValueOnce({ // list_folders  
+        .mockResolvedValueOnce({
+          // list_folders
           success: true,
           data: {
             folders: [],
-            total: 0
-          }
+            total: 0,
+          },
         })
-        .mockResolvedValueOnce({ // list articles
+        .mockResolvedValueOnce({
+          // list articles
           success: true,
           data: {
             articles: [],
-            total: 0
-          }
+            total: 0,
+          },
         })
 
       // This will start watch mode, but we can't test it fully without async control
@@ -350,7 +367,7 @@ describe('DocsSync Command', () => {
       Object.defineProperty(process.stdout, 'isTTY', {
         value: false,
         writable: true,
-        configurable: true
+        configurable: true,
       })
 
       // Use default mock which returns success for all calls

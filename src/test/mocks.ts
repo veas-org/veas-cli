@@ -1,6 +1,6 @@
-import { vi } from 'vitest';
-import type { User } from '@supabase/supabase-js';
-import { vol } from 'memfs';
+import { vi } from 'vitest'
+import type { User } from '@supabase/supabase-js'
+import { vol } from 'memfs'
 
 // Mock Supabase client
 export const mockSupabaseClient = {
@@ -9,7 +9,7 @@ export const mockSupabaseClient = {
     signOut: vi.fn(),
     getSession: vi.fn(),
   },
-};
+}
 
 // Mock user data
 export const mockUser: User = {
@@ -24,7 +24,7 @@ export const mockUser: User = {
   confirmed_at: new Date().toISOString(),
   phone: null,
   role: 'authenticated',
-};
+}
 
 // Mock session data
 export const mockSession = {
@@ -33,7 +33,7 @@ export const mockSession = {
   expires_in: 3600,
   refresh_token: 'test-refresh-token',
   user: mockUser,
-};
+}
 
 // Mock MCP tools
 export const mockTools = [
@@ -57,16 +57,16 @@ export const mockTools = [
       required: ['name'],
     },
   },
-];
+]
 
 // File system helpers
 export function setupMockFileSystem() {
-  vol.reset();
-  return vol;
+  vol.reset()
+  return vol
 }
 
 export function mockHomeDir(path: string) {
-  vi.spyOn(process, 'homedir' as any).mockReturnValue(path);
+  vi.spyOn(process, 'homedir' as any).mockReturnValue(path)
 }
 
 // Mock fetch responses
@@ -77,8 +77,6 @@ export function mockFetchResponse(data: any, ok = true, status = 200) {
     statusText: status === 200 ? 'OK' : 'Error',
     json: () => Promise.resolve(data),
     text: () => Promise.resolve(JSON.stringify(data)),
-    headers: new Map([
-      ['content-type', 'application/json'],
-    ]),
-  } as unknown as Response);
+    headers: new Map([['content-type', 'application/json']]),
+  } as unknown as Response)
 }

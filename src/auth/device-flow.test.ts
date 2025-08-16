@@ -12,7 +12,7 @@ vi.mock('../utils/logger', () => ({
     warn: vi.fn(),
     debug: vi.fn(),
     debugSensitive: vi.fn(),
-  }
+  },
 }))
 vi.mock('util', () => ({
   promisify: vi.fn((fn) => {
@@ -30,7 +30,7 @@ vi.mock('util', () => ({
         }
       })
     }
-  })
+  }),
 }))
 
 global.fetch = vi.fn()
@@ -42,7 +42,7 @@ describe('OAuthDeviceFlow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     deviceFlow = new OAuthDeviceFlow('https://test.api.com')
-    
+
     mockSpinner = {
       start: vi.fn(),
       stop: vi.fn(),
@@ -105,7 +105,7 @@ describe('OAuthDeviceFlow', () => {
             client_id: 'veas-cli',
             scope: 'full_access',
           }),
-        })
+        }),
       )
     })
 
@@ -115,9 +115,7 @@ describe('OAuthDeviceFlow', () => {
         text: async () => 'Bad Request',
       } as Response)
 
-      await expect(deviceFlow.initiateDeviceFlow()).rejects.toThrow(
-        'Failed to initiate device flow: Bad Request'
-      )
+      await expect(deviceFlow.initiateDeviceFlow()).rejects.toThrow('Failed to initiate device flow: Bad Request')
     })
 
     it('should handle network errors', async () => {
@@ -156,7 +154,7 @@ describe('OAuthDeviceFlow', () => {
       } as Response)
 
       const pollPromise = deviceFlow.pollForToken('test-device-code', 5)
-      
+
       await vi.advanceTimersByTimeAsync(5000)
       const result = await pollPromise
 
@@ -171,7 +169,7 @@ describe('OAuthDeviceFlow', () => {
             device_code: 'test-device-code',
             client_id: 'veas-cli',
           }),
-        })
+        }),
       )
     })
 
@@ -192,10 +190,10 @@ describe('OAuthDeviceFlow', () => {
         } as Response)
 
       const pollPromise = deviceFlow.pollForToken('test-device-code', 5)
-      
+
       await vi.advanceTimersByTimeAsync(5000) // First poll
       await vi.advanceTimersByTimeAsync(5000) // Second poll
-      
+
       const result = await pollPromise
 
       expect(result).toEqual(mockToken)
@@ -219,11 +217,11 @@ describe('OAuthDeviceFlow', () => {
         } as Response)
 
       const pollPromise = deviceFlow.pollForToken('test-device-code', 1)
-      
+
       await vi.advanceTimersByTimeAsync(5000) // Initial interval
       await vi.advanceTimersByTimeAsync(5000) // slow_down delay
       await vi.advanceTimersByTimeAsync(5000) // Next poll
-      
+
       const result = await pollPromise
 
       expect(result).toEqual(mockToken)
@@ -232,19 +230,19 @@ describe('OAuthDeviceFlow', () => {
     it.skip('should throw on unrecoverable error', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: false,
-        json: async () => ({ 
+        json: async () => ({
           error: 'invalid_grant',
-          error_description: 'Device code expired'
+          error_description: 'Device code expired',
         }),
       } as Response)
 
-      const pollPromise = deviceFlow.pollForToken('test-device-code', 5).catch(e => {
+      const pollPromise = deviceFlow.pollForToken('test-device-code', 5).catch((e) => {
         // Catch the error to prevent unhandled rejection
         throw e
       })
-      
+
       await vi.advanceTimersByTimeAsync(5000)
-      
+
       await expect(pollPromise).rejects.toThrow('Device code expired')
     })
 
@@ -260,7 +258,7 @@ describe('OAuthDeviceFlow', () => {
       } as Response)
 
       const pollPromise = deviceFlow.pollForToken('test-device-code', 2) // 2 seconds
-      
+
       await vi.advanceTimersByTimeAsync(5000) // Should use minimum 5 seconds
       const result = await pollPromise
 
@@ -272,7 +270,7 @@ describe('OAuthDeviceFlow', () => {
     it('should open browser on macOS', async () => {
       const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
       Object.defineProperty(process, 'platform', { value: 'darwin' })
-      
+
       // The openBrowser method uses execAsync which is promisified exec
       // We just need to test that it doesn't throw
       await expect(deviceFlow.openBrowser('https://test.com')).resolves.not.toThrow()
@@ -285,7 +283,7 @@ describe('OAuthDeviceFlow', () => {
     it('should open browser on Windows', async () => {
       const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
       Object.defineProperty(process, 'platform', { value: 'win32' })
-      
+
       await expect(deviceFlow.openBrowser('https://test.com')).resolves.not.toThrow()
 
       if (originalPlatform) {
@@ -296,7 +294,7 @@ describe('OAuthDeviceFlow', () => {
     it('should open browser on Linux', async () => {
       const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
       Object.defineProperty(process, 'platform', { value: 'linux' })
-      
+
       await expect(deviceFlow.openBrowser('https://test.com')).resolves.not.toThrow()
 
       if (originalPlatform) {
@@ -312,16 +310,16 @@ describe('OAuthDeviceFlow', () => {
       })
 
       await expect(deviceFlow.openBrowser('https://test.com')).resolves.not.toThrow()
-      
+
       expect(logger.warn).toHaveBeenCalledWith('Could not open browser automatically.')
       expect(logger.info).toHaveBeenCalled()
       // Check that at least one call contains the expected text (accounting for color codes)
       const infoCalls = vi.mocked(logger.info).mock.calls
-      const hasAuthMessage = infoCalls.some(call => 
-        call[0] && call[0].toString().includes('Please visit this URL to authenticate:')
+      const hasAuthMessage = infoCalls.some(
+        (call) => call[0] && call[0].toString().includes('Please visit this URL to authenticate:'),
       )
       expect(hasAuthMessage).toBe(true)
-      
+
       // Restore original mock
       vi.mocked(util.promisify).mockImplementation(originalMock!)
     })
@@ -368,7 +366,7 @@ describe('OAuthDeviceFlow', () => {
       // Mock exec to succeed
 
       const authPromise = deviceFlow.authenticate()
-      
+
       await vi.advanceTimersByTimeAsync(5000)
       const result = await authPromise
 
@@ -380,7 +378,7 @@ describe('OAuthDeviceFlow', () => {
 
     it('should handle localhost URLs correctly', async () => {
       const localFlow = new OAuthDeviceFlow('http://localhost:3000')
-      
+
       const mockDeviceResponse = {
         device_code: 'test-device-code',
         user_code: 'TEST-CODE',
@@ -408,7 +406,7 @@ describe('OAuthDeviceFlow', () => {
       // Mock exec to succeed
 
       const authPromise = localFlow.authenticate()
-      
+
       await vi.advanceTimersByTimeAsync(5000)
       await authPromise
 
@@ -419,7 +417,7 @@ describe('OAuthDeviceFlow', () => {
       vi.mocked(global.fetch).mockRejectedValueOnce(new Error('Network error'))
 
       await expect(deviceFlow.authenticate()).rejects.toThrow('Network error')
-      
+
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('failed'))
     })
 
@@ -450,7 +448,7 @@ describe('OAuthDeviceFlow', () => {
       // Mock exec to succeed
 
       const authPromise = deviceFlow.authenticate()
-      
+
       await vi.advanceTimersByTimeAsync(5000)
       await authPromise
 

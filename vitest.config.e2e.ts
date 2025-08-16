@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { defineConfig } from 'vitest/config'
+import path from 'path'
 
 export default defineConfig({
   test: {
@@ -20,9 +20,7 @@ export default defineConfig({
       },
     },
     setupFiles: ['./src/test/e2e/setup.ts'],
-    reporters: process.env.CI 
-      ? ['default', 'json', 'junit']
-      : ['default', 'html'],
+    reporters: process.env.CI ? ['default', 'json', 'junit'] : ['default', 'html'],
     outputFile: {
       json: './test-results/e2e-results.json',
       junit: './test-results/e2e-results.xml',
@@ -37,4 +35,4 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-});
+})

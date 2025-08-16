@@ -12,12 +12,12 @@ describe('MCPClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     mockAuthManager = {
       getCredentials: vi.fn(),
     }
     vi.mocked(AuthManager).getInstance.mockReturnValue(mockAuthManager)
-    
+
     client = new MCPClient('http://localhost:3000')
   })
 
@@ -72,10 +72,10 @@ describe('MCPClient', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-token',
+            Authorization: 'Bearer test-token',
           }),
           body: expect.stringContaining('"method":"initialize"'),
-        })
+        }),
       )
     })
 
@@ -132,7 +132,7 @@ describe('MCPClient', () => {
         expect.any(String),
         expect.objectContaining({
           body: expect.stringContaining('"method":"tools/list"'),
-        })
+        }),
       )
     })
   })
@@ -164,10 +164,8 @@ describe('MCPClient', () => {
       const result = await client.callTool('my-tool', { param: 'value' })
 
       expect(result).toEqual(mockResponse.result)
-      
-      const callBody = JSON.parse(
-        vi.mocked(global.fetch).mock.calls[0][1].body
-      )
+
+      const callBody = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1].body)
       expect(callBody.method).toBe('tools/call')
       expect(callBody.params.name).toBe('my-tool')
       expect(callBody.params.arguments).toEqual({ param: 'value' })
@@ -192,9 +190,7 @@ describe('MCPClient', () => {
         json: async () => mockError,
       } as Response)
 
-      await expect(client.callTool('failing-tool', {})).rejects.toThrow(
-        'Tool execution failed'
-      )
+      await expect(client.callTool('failing-tool', {})).rejects.toThrow('Tool execution failed')
     })
 
     it('should handle empty tool arguments', async () => {
@@ -215,9 +211,7 @@ describe('MCPClient', () => {
 
       await client.callTool('simple-tool', {})
 
-      const callBody = JSON.parse(
-        vi.mocked(global.fetch).mock.calls[0][1].body
-      )
+      const callBody = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1].body)
       expect(callBody.params.arguments).toEqual({})
     })
   })
@@ -233,18 +227,22 @@ describe('MCPClient', () => {
         json: async () => ({ jsonrpc: '2.0', result: 'ok' }),
       } as Response)
 
-      await client['request']('custom/method', { data: 'test' }, {
-        'X-Custom-Header': 'custom-value',
-      })
+      await client['request'](
+        'custom/method',
+        { data: 'test' },
+        {
+          'X-Custom-Header': 'custom-value',
+        },
+      )
 
       expect(global.fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
             'X-Custom-Header': 'custom-value',
-            'Authorization': 'Bearer test-token',
+            Authorization: 'Bearer test-token',
           }),
-        })
+        }),
       )
     })
 
@@ -348,7 +346,7 @@ describe('MCPClient', () => {
   describe('lifecycle', () => {
     it('should handle connection state', () => {
       expect(client.isConnected()).toBe(false)
-      
+
       // After successful initialization
       client['connected'] = true
       expect(client.isConnected()).toBe(true)
@@ -357,7 +355,7 @@ describe('MCPClient', () => {
     it('should disconnect properly', async () => {
       client['connected'] = true
       await client.disconnect()
-      
+
       expect(client.isConnected()).toBe(false)
     })
 
@@ -374,7 +372,7 @@ describe('MCPClient', () => {
       await client.initialize()
       await client.disconnect()
       await client.initialize()
-      
+
       expect(global.fetch).toHaveBeenCalledTimes(2)
     })
   })

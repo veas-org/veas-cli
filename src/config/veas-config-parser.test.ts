@@ -9,15 +9,15 @@ vi.mock('fs/promises')
 vi.mock('fs')
 vi.mock('js-yaml')
 vi.mock('fast-glob', () => ({
-  default: vi.fn().mockResolvedValue(['/project/docs/README.md', '/project/docs/guide.md'])
+  default: vi.fn().mockResolvedValue(['/project/docs/README.md', '/project/docs/guide.md']),
 }))
 vi.mock('../utils/logger', () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
-  }
+    error: vi.fn(),
+  },
 }))
 
 describe('VeasConfigParser', () => {
@@ -80,10 +80,12 @@ describe('VeasConfigParser', () => {
           slug: 'test-pub',
         },
         sync: {
-          roots: [{
-            path: './docs',
-            include: ['**/*.md'],
-          }],
+          roots: [
+            {
+              path: './docs',
+              include: ['**/*.md'],
+            },
+          ],
         },
       }
 
@@ -134,10 +136,12 @@ describe('VeasConfigParser', () => {
       const invalidConfig = {
         version: 2, // Unsupported version
         sync: {
-          roots: [{
-            path: './docs',
-            include: ['**/*.md'],
-          }],
+          roots: [
+            {
+              path: './docs',
+              include: ['**/*.md'],
+            },
+          ],
         },
       }
 
@@ -145,7 +149,7 @@ describe('VeasConfigParser', () => {
       vi.mocked(yaml.load).mockReturnValue(invalidConfig)
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
-      
+
       // Should throw error for unsupported version
       await expect(parser.load()).rejects.toThrow('Unsupported configuration version: 2')
     })
@@ -159,10 +163,12 @@ describe('VeasConfigParser', () => {
           name: 'Test Publication',
         },
         sync: {
-          roots: [{
-            path: '.',
-            include: ['**/*.md'],
-          }],
+          roots: [
+            {
+              path: '.',
+              include: ['**/*.md'],
+            },
+          ],
         },
       }
 
@@ -173,11 +179,7 @@ describe('VeasConfigParser', () => {
       await parser.save(config)
 
       expect(yaml.dump).toHaveBeenCalledWith(config, expect.any(Object))
-      expect(fs.writeFile).toHaveBeenCalledWith(
-        '/project/.veas-config.yaml',
-        yamlContent,
-        'utf8'
-      )
+      expect(fs.writeFile).toHaveBeenCalledWith('/project/.veas-config.yaml', yamlContent, 'utf8')
     })
   })
 
@@ -197,7 +199,7 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       await parser.load()
-      
+
       const publication = parser.getPublication()
       expect(publication).toEqual(mockConfig.publication)
     })
@@ -213,7 +215,7 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       await parser.load()
-      
+
       const publication = parser.getPublication()
       expect(publication).toBeUndefined()
     })
@@ -224,11 +226,13 @@ describe('VeasConfigParser', () => {
       const mockConfig = {
         version: 1,
         sync: {
-          roots: [{
-            path: './docs',
-            include: ['**/*.md'],
-            exclude: ['**/draft-*'],
-          }],
+          roots: [
+            {
+              path: './docs',
+              include: ['**/*.md'],
+              exclude: ['**/draft-*'],
+            },
+          ],
           metadata: {
             frontmatter: true,
           },
@@ -240,7 +244,7 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       await parser.load()
-      
+
       const syncConfig = parser.getSyncConfig()
       // The config is merged with defaults, so check the key parts
       expect(syncConfig.roots).toEqual(mockConfig.sync.roots)
@@ -253,11 +257,13 @@ describe('VeasConfigParser', () => {
       const mockConfig = {
         version: 1,
         sync: {
-          roots: [{
-            path: './docs',
-            include: ['**/*.md', '**/*.mdx'],
-            exclude: ['**/node_modules/**'],
-          }],
+          roots: [
+            {
+              path: './docs',
+              include: ['**/*.md', '**/*.mdx'],
+              exclude: ['**/node_modules/**'],
+            },
+          ],
         },
       }
 
@@ -266,7 +272,7 @@ describe('VeasConfigParser', () => {
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
       await parser.load()
-      
+
       const globs = await parser.resolveGlobs()
       expect(globs).toBeDefined()
       expect(globs.length).toBe(2)
@@ -282,7 +288,7 @@ describe('VeasConfigParser', () => {
       })
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
-      
+
       // Should throw error for YAML parse errors
       await expect(parser.load()).rejects.toThrow('Failed to load configuration: YAML parse error')
     })
@@ -291,7 +297,7 @@ describe('VeasConfigParser', () => {
       vi.mocked(fs.readFile).mockRejectedValue(new Error('Permission denied'))
 
       const parser = new VeasConfigParser('/project/.veas-config.yaml')
-      
+
       // Should throw error for permission errors
       await expect(parser.load()).rejects.toThrow('Failed to load configuration: Permission denied')
     })

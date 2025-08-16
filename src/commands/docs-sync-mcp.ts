@@ -135,11 +135,12 @@ class DocsSyncer {
       const result = await this.executeSync(operations)
 
       if (s) s.stop(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
-      else logger.info(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
+      else
+        logger.info(`Sync complete: ${result.created} created, ${result.updated} updated, ${result.archived} archived`)
 
       if (result.errors.length > 0) {
         logger.warn('Sync completed with errors:')
-        result.errors.forEach(err => logger.error(`  - ${err}`))
+        result.errors.forEach((err) => logger.error(`  - ${err}`))
       }
 
       return result
@@ -159,7 +160,7 @@ class DocsSyncer {
     // Set up file watcher
     const chokidar = await import('chokidar')
     const roots = this.configParser.getSyncRoots()
-    const watchPaths = roots.map(r => r.absolutePath)
+    const watchPaths = roots.map((r) => r.absolutePath)
 
     const watcher = chokidar.watch(watchPaths, {
       ignored: this.config.sync.exclude || [],
@@ -175,14 +176,11 @@ class DocsSyncer {
       if (syncTimeout) clearTimeout(syncTimeout)
       syncTimeout = setTimeout(() => {
         logger.info('File changes detected, syncing...')
-        this.sync().catch(err => logger.error('Sync error:', err))
+        this.sync().catch((err) => logger.error('Sync error:', err))
       }, this.config.sync.watch?.debounce || 1000)
     }
 
-    watcher
-      .on('change', scheduleSync)
-      .on('add', scheduleSync)
-      .on('unlink', scheduleSync)
+    watcher.on('change', scheduleSync).on('add', scheduleSync).on('unlink', scheduleSync)
 
     logger.info('Watching for changes... (Press Ctrl+C to stop)')
 
@@ -198,50 +196,53 @@ class DocsSyncer {
     // Resolve organization slug to ID if provided
     if (this.config.publication?.organization_slug && !this.config.publication?.organization_id) {
       logger.debug(`Resolving organization slug: ${this.config.publication.organization_slug}`)
-      
+
       // Try to find organization by slug from user's organizations
       const userResponse = await this.mcpClient.callToolSafe('mcp-project-manager_get_user_info', {})
-      
+
       if (userResponse.success) {
         let userData = userResponse.data
         // Handle MCP response format
         if (userData?.content?.[0]?.data) {
           userData = userData.content[0].data
         }
-        
+
         // Look for organization with matching slug
         if (userData?.organizations?.length > 0) {
-          const org = userData.organizations.find((o: any) => 
-            o.slug === this.config.publication!.organization_slug ||
-            o.organization_slug === this.config.publication!.organization_slug
+          const org = userData.organizations.find(
+            (o: any) =>
+              o.slug === this.config.publication!.organization_slug ||
+              o.organization_slug === this.config.publication!.organization_slug,
           )
-          
+
           if (org) {
             this.config.publication.organization_id = org.id || org.organization_id
-            logger.info(`Resolved organization slug "${this.config.publication.organization_slug}" to ID: ${this.config.publication.organization_id}`)
+            logger.info(
+              `Resolved organization slug "${this.config.publication.organization_slug}" to ID: ${this.config.publication.organization_id}`,
+            )
           } else {
             logger.warn(`Organization with slug "${this.config.publication.organization_slug}" not found`)
           }
         }
       }
     }
-    
+
     // If still no organization_id, try to get it from existing publications
     if (!this.config.publication?.organization_id || this.config.publication.organization_id === 'anonymous') {
       logger.debug('Attempting to infer organization from existing publications...')
-      
+
       const listResponse = await this.mcpClient.callToolSafe('mcp-articles_list_publications', {
-        limit: 5
+        limit: 5,
       })
-      
+
       if (listResponse.success) {
         let responseData = listResponse.data
         if (responseData?.content?.[0]?.data) {
           responseData = responseData.content[0].data
         }
-        
+
         const publications = responseData?.publications || []
-        
+
         // Find the most common organization_id (excluding null and 'anonymous')
         const orgCounts = new Map<string, number>()
         for (const pub of publications) {
@@ -249,7 +250,7 @@ class DocsSyncer {
             orgCounts.set(pub.organization_id, (orgCounts.get(pub.organization_id) || 0) + 1)
           }
         }
-        
+
         // Get the most common organization_id
         let mostCommonOrgId: string | undefined
         let maxCount = 0
@@ -259,7 +260,7 @@ class DocsSyncer {
             maxCount = count
           }
         }
-        
+
         if (mostCommonOrgId) {
           if (!this.config.publication) {
             this.config.publication = { name: '' } // Will be set later
@@ -272,11 +273,13 @@ class DocsSyncer {
         }
       }
     }
-    
+
     // Check if publication name is provided
     if (!this.config.publication?.name) {
       if (!process.stdout.isTTY) {
-        throw new Error('Publication name is required. Please provide it in the configuration file or run in interactive mode.')
+        throw new Error(
+          'Publication name is required. Please provide it in the configuration file or run in interactive mode.',
+        )
       }
 
       const name = await text({
@@ -284,7 +287,7 @@ class DocsSyncer {
         placeholder: 'My Project Documentation',
         validate: (value) => {
           if (!value.trim()) return 'Publication name is required'
-          return;
+          return
         },
       })
 
@@ -301,9 +304,9 @@ class DocsSyncer {
     // List existing publications using MCP
     const response = await this.mcpClient.callToolSafe('mcp-articles_list_publications', {
       filters: {
-        name_contains: this.config.publication.name
+        name_contains: this.config.publication.name,
       },
-      limit: 10
+      limit: 10,
     })
 
     // Handle MCP response format
@@ -311,7 +314,7 @@ class DocsSyncer {
     if (responseData?.content?.[0]?.data) {
       responseData = responseData.content[0].data
     }
-    const publications = response.success ? (responseData?.publications || []) : []
+    const publications = response.success ? responseData?.publications || [] : []
     const exactMatch = publications.find((p: any) => p.name === this.config.publication!.name)
 
     if (exactMatch) {
@@ -344,27 +347,27 @@ class DocsSyncer {
     // Generate slug if not provided
     const slug = this.config.publication.slug || this.slugify(this.config.publication.name)
 
-    // Create publication using MCP  
+    // Create publication using MCP
     // Don't include organization_id at all if not provided to avoid server-side defaults
     const createParams: any = {
       name: this.config.publication.name,
       slug,
       is_active: true,
-      is_public: true
+      is_public: true,
     }
-    
+
     // Only add description if provided
     if (this.config.publication.description) {
       createParams.description = this.config.publication.description
     }
-    
+
     // Only include organization_id if it's a valid UUID (not 'anonymous' or other invalid values)
     if (this.config.publication.organization_id) {
       const orgId = this.config.publication.organization_id
-      
+
       // Check if it's a valid UUID
       const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)
-      
+
       if (isValidUUID && orgId !== 'anonymous') {
         createParams.organization_id = orgId
         logger.debug(`Creating publication with organization_id: ${orgId}`)
@@ -375,7 +378,7 @@ class DocsSyncer {
     } else {
       logger.debug(`Creating personal publication (no organization_id)`)
     }
-    
+
     logger.debug(`Create params:`, JSON.stringify(createParams, null, 2))
     const createResponse = await this.mcpClient.callToolSafe('mcp-articles_create_publication', createParams)
 
@@ -392,9 +395,8 @@ class DocsSyncer {
     }
 
     // Extract publication ID from various possible structures
-    this.publicationId = publicationData?.id ||
-                        publicationData?.publication?.id ||
-                        publicationData?.data?.publication?.id
+    this.publicationId =
+      publicationData?.id || publicationData?.publication?.id || publicationData?.data?.publication?.id
 
     if (!this.publicationId) {
       logger.error('Failed to get publication ID from response:', JSON.stringify(createResponse.data, null, 2))
@@ -408,7 +410,7 @@ class DocsSyncer {
     // List existing folders using MCP
     const response = await this.mcpClient.callToolSafe('list_folders', {
       publication_id: this.publicationId,
-      include_article_counts: false
+      include_article_counts: false,
     })
 
     // Handle MCP response format
@@ -416,7 +418,7 @@ class DocsSyncer {
     if (responseData?.content?.[0]?.data) {
       responseData = responseData.content[0].data
     }
-    const folders = response.success ? (responseData?.folders || []) : []
+    const folders = response.success ? responseData?.folders || [] : []
     const existingFolders = new Map<string, any>()
     for (const folder of folders) {
       existingFolders.set(folder.name, folder)
@@ -457,7 +459,7 @@ class DocsSyncer {
           const folderResponse = await this.mcpClient.callToolSafe('create_folder', {
             publication_id: this.publicationId!,
             name: remoteName,
-            description: folderConfig.description || null
+            description: folderConfig.description || null,
           })
 
           if (folderResponse.success) {
@@ -560,9 +562,7 @@ class DocsSyncer {
 
     // Use filename without extension
     const basename = path.basename(relativePath, path.extname(relativePath))
-    return basename
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, l => l.toUpperCase())
+    return basename.replace(/[-_]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
   private hashContent(content: string): string {
@@ -572,9 +572,9 @@ class DocsSyncer {
   private async fetchRemoteArticles(): Promise<void> {
     const response = await this.mcpClient.callToolSafe('mcp-articles_list_articles', {
       filters: {
-        publication_id: this.publicationId
+        publication_id: this.publicationId,
       },
-      limit: 1000 // TODO: Handle pagination
+      limit: 1000, // TODO: Handle pagination
     })
 
     // Handle MCP response format
@@ -582,7 +582,7 @@ class DocsSyncer {
     if (responseData?.content?.[0]?.data) {
       responseData = responseData.content[0].data
     }
-    const articles = response.success ? (responseData?.articles || []) : []
+    const articles = response.success ? responseData?.articles || [] : []
 
     for (const article of articles) {
       // Store article by slug or title for matching
@@ -707,16 +707,14 @@ class DocsSyncer {
     // Create articles
     for (const file of operations.create) {
       try {
-        const folderId = file.remoteFolder
-          ? this.folderIds.get(file.remoteFolder)
-          : undefined
+        const folderId = file.remoteFolder ? this.folderIds.get(file.remoteFolder) : undefined
 
         const createResponse = await this.mcpClient.callToolSafe('mcp-articles_create_article', {
           title: file.metadata.title,
           content: file.content,
           status: file.metadata.status || 'published',
           publication_id: this.publicationId!,
-          folder_id: folderId || null
+          folder_id: folderId || null,
         })
 
         if (createResponse.success) {
@@ -761,7 +759,7 @@ class DocsSyncer {
 
         const updateResponse = await this.mcpClient.callToolSafe('mcp-articles_update_article', {
           article_id: article.id,
-          ...updateData
+          ...updateData,
         })
 
         if (updateResponse.success) {
@@ -780,7 +778,7 @@ class DocsSyncer {
       try {
         const archiveResponse = await this.mcpClient.callToolSafe('mcp-articles_update_article', {
           article_id: article.id,
-          status: 'archived'
+          status: 'archived',
         })
 
         if (archiveResponse.success) {
@@ -805,16 +803,16 @@ class DocsSyncer {
           const searchResponse = await this.mcpClient.callToolSafe('search_tags', {
             search_term: tagName,
             filters: {
-              publication_id: this.publicationId
-            }
+              publication_id: this.publicationId,
+            },
           })
 
           if (searchResponse.success && (!searchResponse.data?.tags || searchResponse.data.tags.length === 0)) {
             await this.mcpClient.callToolSafe('create_tag', {
               data: {
                 name: tagName,
-                publication_id: this.publicationId
-              }
+                publication_id: this.publicationId,
+              },
             })
           }
         } catch (_error) {
@@ -828,8 +826,8 @@ class DocsSyncer {
         const listResponse = await this.mcpClient.callToolSafe('list_tags', {
           filters: {
             name_contains: tagName,
-            publication_id: this.publicationId
-          }
+            publication_id: this.publicationId,
+          },
         })
         if (listResponse.success && listResponse.data?.tags) {
           const tag = listResponse.data.tags.find((t: any) => t.name === tagName)
@@ -843,7 +841,7 @@ class DocsSyncer {
       if (tagIds.length > 0) {
         await this.mcpClient.callToolSafe('mcp-articles_add_article_tags', {
           article_id: articleId,
-          tag_ids: tagIds
+          tag_ids: tagIds,
         })
       }
     } catch (error: any) {

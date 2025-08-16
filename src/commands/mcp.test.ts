@@ -12,7 +12,7 @@ vi.mock('../utils/logger', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-  }
+  },
 }))
 
 // Mock MCPClient
@@ -20,7 +20,7 @@ vi.mock('../mcp/mcp-client.js', () => ({
   MCPClient: vi.fn().mockImplementation(() => ({
     initialize: vi.fn(),
     listTools: vi.fn(),
-  }))
+  })),
 }))
 
 global.fetch = vi.fn()
@@ -33,7 +33,7 @@ describe('MCP Commands', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called')
@@ -98,9 +98,9 @@ describe('MCP Commands', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-token',
+            Authorization: 'Bearer test-token',
           }),
-        })
+        }),
       )
     })
 
@@ -112,7 +112,7 @@ describe('MCP Commands', () => {
       vi.mocked(global.fetch).mockRejectedValueOnce(new Error('Network error'))
 
       await expect(testConnection()).rejects.toThrow('process.exit')
-      
+
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('failed'))
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Network error'))
     })
@@ -122,14 +122,14 @@ describe('MCP Commands', () => {
       mockAuthManager.getToken.mockResolvedValue(null)
 
       await expect(testConnection()).rejects.toThrow('process.exit')
-      
+
       expect(logger.error).toHaveBeenCalledWith('No authentication token found')
     })
 
     it('should use environment API URL', async () => {
       const originalEnv = process.env.VEAS_API_URL
       process.env.VEAS_API_URL = 'https://custom.api.com'
-      
+
       mockAuthManager.getCredentials.mockResolvedValue({
         accessToken: 'test-token',
       })
@@ -141,10 +141,7 @@ describe('MCP Commands', () => {
 
       await testConnection()
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        'https://custom.api.com/api/mcp-manual',
-        expect.any(Object)
-      )
+      expect(global.fetch).toHaveBeenCalledWith('https://custom.api.com/api/mcp-manual', expect.any(Object))
 
       process.env.VEAS_API_URL = originalEnv
     })
@@ -216,7 +213,7 @@ describe('MCP Commands', () => {
       } as Response)
 
       await expect(listProjects()).rejects.toThrow('process.exit')
-      
+
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Failed'))
     })
 
@@ -293,7 +290,8 @@ describe('MCP Commands', () => {
       })
 
       // Mock the text validation to fail for empty input
-      const mockTextFn = vi.fn()
+      const mockTextFn = vi
+        .fn()
         .mockImplementationOnce((opts: any) => {
           // Call the validate function to ensure it returns error
           if (opts.validate) {
@@ -304,7 +302,7 @@ describe('MCP Commands', () => {
           return Promise.resolve('PROJ1')
         })
         .mockResolvedValueOnce('Title')
-      
+
       vi.mocked(prompts.text).mockImplementation(mockTextFn)
 
       // Mock the API to work correctly
@@ -314,7 +312,7 @@ describe('MCP Commands', () => {
       } as Response)
 
       await createIssue()
-      
+
       // Verify that validation was called
       expect(mockTextFn).toHaveBeenCalled()
     })
@@ -327,9 +325,7 @@ describe('MCP Commands', () => {
         accessToken: 'test-token',
       })
 
-      vi.mocked(prompts.text)
-        .mockResolvedValueOnce('PROJ1')
-        .mockResolvedValueOnce('Title')
+      vi.mocked(prompts.text).mockResolvedValueOnce('PROJ1').mockResolvedValueOnce('Title')
 
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: false,
@@ -337,7 +333,7 @@ describe('MCP Commands', () => {
       } as Response)
 
       await expect(createIssue()).rejects.toThrow('process.exit')
-      
+
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Failed'))
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Project not found'))
     })
@@ -375,7 +371,7 @@ describe('MCP Commands', () => {
       mockAuthManager.ensureAuthenticated.mockRejectedValueOnce(new Error('Auth failed'))
 
       await expect(testDirectMCP()).rejects.toThrow('process.exit')
-      
+
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('failed'))
       expect(logger.error).toHaveBeenCalledWith('Error testing direct MCP:', expect.any(Error))
     })
@@ -395,7 +391,7 @@ describe('MCP Commands', () => {
       vi.mocked(MCPClient).mockImplementation(() => mockClient as any)
 
       await expect(testDirectMCP()).rejects.toThrow('process.exit')
-      
+
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('No tools available'))
     })
   })

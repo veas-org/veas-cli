@@ -10,7 +10,7 @@ describe('CacheManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     mockCache = {
       get: vi.fn(),
       set: vi.fn(),
@@ -23,7 +23,7 @@ describe('CacheManager', () => {
       close: vi.fn(),
       getStats: vi.fn(),
     }
-    
+
     vi.mocked(NodeCache).mockImplementation(() => mockCache)
     cacheManager = CacheManager.getInstance()
   })
@@ -71,7 +71,7 @@ describe('CacheManager', () => {
         id: string
         name: string
       }
-      
+
       const testValue: TestType = { id: '1', name: 'Test' }
       mockCache.get.mockReturnValue(testValue)
 
@@ -297,7 +297,7 @@ describe('CacheManager', () => {
 
     it('should handle cache miss and fetch pattern', () => {
       const key = 'api-response'
-      
+
       // Cache miss
       mockCache.get.mockReturnValue(undefined)
       const cached = cacheManager.get(key)

@@ -67,11 +67,13 @@ export interface VeasConfig {
 const DEFAULT_CONFIG: Partial<VeasConfig> = {
   version: 1,
   sync: {
-    roots: [{
-      path: '.',
-      include: ['**/*.md', '**/*.mdx'],
-      exclude: ['**/node_modules/**', '**/.git/**', '**/draft-*'],
-    }],
+    roots: [
+      {
+        path: '.',
+        include: ['**/*.md', '**/*.mdx'],
+        exclude: ['**/node_modules/**', '**/.git/**', '**/draft-*'],
+      },
+    ],
     include: ['**/*.md', '**/*.mdx'],
     exclude: ['**/node_modules/**', '**/.git/**', '**/draft-*'],
     metadata: {
@@ -113,7 +115,7 @@ export class VeasConfigParser {
   private findConfigFile(): string {
     const configFileName = '.veas-config.yaml'
     let currentDir = process.cwd()
-    
+
     // Search up the directory tree
     while (currentDir !== path.dirname(currentDir)) {
       const candidatePath = path.join(currentDir, configFileName)
@@ -129,7 +131,7 @@ export class VeasConfigParser {
       }
       currentDir = path.dirname(currentDir)
     }
-    
+
     // If not found, use current directory
     return path.join(process.cwd(), configFileName)
   }
@@ -141,13 +143,13 @@ export class VeasConfigParser {
     try {
       const configContent = await fs.readFile(this.configPath, 'utf8')
       const rawConfig = yaml.load(configContent) as Partial<VeasConfig>
-      
+
       // Merge with defaults
       this.config = this.mergeWithDefaults(rawConfig)
-      
+
       // Validate configuration
       this.validateConfig(this.config)
-      
+
       logger.debug('Configuration loaded successfully', this.config)
       return this.config
     } catch (error) {
@@ -157,7 +159,7 @@ export class VeasConfigParser {
         this.config = DEFAULT_CONFIG as VeasConfig
         return this.config
       }
-      
+
       throw new Error(`Failed to load configuration: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -170,12 +172,14 @@ export class VeasConfigParser {
     let roots = userConfig.sync?.roots
     if (!roots && (userConfig.sync as any)?.root) {
       // Convert legacy single root to roots array
-      roots = [{
-        path: (userConfig.sync as any).root,
-        include: userConfig.sync?.include,
-        exclude: userConfig.sync?.exclude,
-        folders: userConfig.sync?.folders,
-      }]
+      roots = [
+        {
+          path: (userConfig.sync as any).root,
+          include: userConfig.sync?.include,
+          exclude: userConfig.sync?.exclude,
+          folders: userConfig.sync?.folders,
+        },
+      ]
     }
 
     const merged: VeasConfig = {
@@ -185,14 +189,16 @@ export class VeasConfigParser {
         ...DEFAULT_CONFIG.sync!,
         ...userConfig.sync,
         roots: roots || DEFAULT_CONFIG.sync?.roots,
-        metadata: userConfig.sync?.metadata ? {
-          ...DEFAULT_CONFIG.sync?.metadata,
-          ...userConfig.sync.metadata,
-          defaults: {
-            ...DEFAULT_CONFIG.sync?.metadata?.defaults,
-            ...userConfig.sync.metadata?.defaults,
-          },
-        } : DEFAULT_CONFIG.sync?.metadata,
+        metadata: userConfig.sync?.metadata
+          ? {
+              ...DEFAULT_CONFIG.sync?.metadata,
+              ...userConfig.sync.metadata,
+              defaults: {
+                ...DEFAULT_CONFIG.sync?.metadata?.defaults,
+                ...userConfig.sync.metadata?.defaults,
+              },
+            }
+          : DEFAULT_CONFIG.sync?.metadata,
         watch: {
           ...DEFAULT_CONFIG.sync?.watch,
           ...userConfig.sync?.watch,
@@ -272,7 +278,7 @@ export class VeasConfigParser {
     }
 
     const configDir = path.dirname(this.configPath)
-    return (this.config.sync.roots || []).map(root => ({
+    return (this.config.sync.roots || []).map((root) => ({
       root,
       absolutePath: path.resolve(configDir, root.path),
     }))
@@ -361,7 +367,7 @@ export class VeasConfigParser {
    */
   static async createSampleConfig(targetPath?: string): Promise<void> {
     const configPath = targetPath || path.join(process.cwd(), '.veas-config.yaml')
-    
+
     const sampleConfig = `# Veas Documentation Sync Configuration
 version: 1
 
@@ -487,13 +493,13 @@ sync:
     if (!configToSave) {
       throw new Error('No configuration to save')
     }
-    
+
     const yamlContent = yaml.dump(configToSave, {
       indent: 2,
       lineWidth: 120,
       sortKeys: false,
     })
-    
+
     await fs.writeFile(this.configPath, yamlContent, 'utf8')
     logger.debug(`Configuration saved to ${this.configPath}`)
   }
@@ -525,14 +531,14 @@ sync:
     if (!this.config) {
       throw new Error('Configuration not loaded')
     }
-    
+
     const files: string[] = []
-    
+
     for (const root of this.config.sync.roots || []) {
       const rootPath = path.resolve(root.path)
       const include = root.include || this.config.sync.include || ['**/*.md']
       const exclude = root.exclude || this.config.sync.exclude || []
-      
+
       // Use fast-glob to resolve patterns
       const glob = await import('fast-glob')
       const matches = await glob.default(include, {
@@ -540,10 +546,10 @@ sync:
         ignore: exclude,
         absolute: true,
       })
-      
+
       files.push(...matches)
     }
-    
+
     return files
   }
 }

@@ -1,70 +1,70 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import * as os from 'os';
-import * as crypto from 'crypto';
-import axios from 'axios';
-import { logger } from '../utils/logger.js';
-import { OAuthDeviceFlow } from './device-flow.js';
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import * as os from 'os'
+import * as crypto from 'crypto'
+import axios from 'axios'
+import { logger } from '../utils/logger.js'
+import { OAuthDeviceFlow } from './device-flow.js'
 
 export interface User {
-  id: string;
-  email: string;
-  [key: string]: any;
+  id: string
+  email: string
+  [key: string]: any
 }
 
 export interface Session {
-  user: User;
-  token: string;
-  refreshToken?: string;
-  expiresAt?: number;
-  patToken?: string;
-  email?: string;
-  type?: string;
+  user: User
+  token: string
+  refreshToken?: string
+  expiresAt?: number
+  patToken?: string
+  email?: string
+  type?: string
 }
 
 export class AuthManager {
-  private static instance: AuthManager;
-  private configDir: string;
-  private authFile: string;
-  private encryptionKey: Buffer;
-  private apiUrl: string;
+  private static instance: AuthManager
+  private configDir: string
+  private authFile: string
+  private encryptionKey: Buffer
+  private apiUrl: string
 
   private constructor() {
-    this.configDir = path.join(os.homedir(), '.veas');
-    this.authFile = path.join(this.configDir, 'auth.json');
+    this.configDir = path.join(os.homedir(), '.veas')
+    this.authFile = path.join(this.configDir, 'auth.json')
     // Use machine ID as encryption key source
-    const machineId = os.hostname() + os.platform() + os.arch();
-    this.encryptionKey = crypto.scryptSync(machineId, 'veas-cli-salt', 32);
-    this.apiUrl = process.env.VEAS_API_URL || 'https://veas.app';
+    const machineId = os.hostname() + os.platform() + os.arch()
+    this.encryptionKey = crypto.scryptSync(machineId, 'veas-cli-salt', 32)
+    this.apiUrl = process.env.VEAS_API_URL || 'https://veas.app'
   }
 
   private async ensureConfigDir() {
     try {
-      await fs.mkdir(this.configDir, { recursive: true });
+      await fs.mkdir(this.configDir, { recursive: true })
     } catch (_error) {
       // Directory might already exist
     }
   }
 
   private encrypt(text: string): string {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', this.encryptionKey, iv);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return iv.toString('hex') + ':' + encrypted;
+    const iv = crypto.randomBytes(16)
+    const cipher = crypto.createCipheriv('aes-256-cbc', this.encryptionKey, iv)
+    let encrypted = cipher.update(text, 'utf8', 'hex')
+    encrypted += cipher.final('hex')
+    return iv.toString('hex') + ':' + encrypted
   }
 
   private decrypt(text: string): string {
-    const parts = text.split(':');
+    const parts = text.split(':')
     if (parts.length !== 2) {
-      throw new Error('Invalid encrypted data format');
+      throw new Error('Invalid encrypted data format')
     }
-    const iv = Buffer.from(parts[0]!, 'hex');
-    const encryptedText = parts[1]!;
-    const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+    const iv = Buffer.from(parts[0]!, 'hex')
+    const encryptedText = parts[1]!
+    const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv)
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8')
+    decrypted += decipher.final('utf8')
+    return decrypted
   }
 
   async login(email: string, password: string): Promise<{ user: User; token: string }> {
@@ -76,32 +76,32 @@ export class AuthManager {
         {
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'veas-cli/0.1.0'
-          }
-        }
-      );
+            'User-Agent': 'veas-cli/0.1.0',
+          },
+        },
+      )
 
-      const { user, token, refreshToken } = response.data;
+      const { user, token, refreshToken } = response.data
 
       if (!user || !token) {
-        throw new Error('Invalid response from authentication server');
+        throw new Error('Invalid response from authentication server')
       }
 
       await this.saveSession({
         user,
         token,
         refreshToken,
-        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
-      });
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+      })
 
-      logger.debug('Login successful', { userId: user.id });
-      return { user, token };
+      logger.debug('Login successful', { userId: user.id })
+      return { user, token }
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.message;
-        throw new Error(`Authentication failed: ${message}`);
+        const message = error.response?.data?.message || error.message
+        throw new Error(`Authentication failed: ${message}`)
       }
-      throw error;
+      throw error
     }
   }
 
@@ -114,31 +114,31 @@ export class AuthManager {
         {
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'veas-cli/0.1.0'
-          }
-        }
-      );
+            'User-Agent': 'veas-cli/0.1.0',
+          },
+        },
+      )
 
-      const { user } = response.data;
+      const { user } = response.data
 
       if (!user) {
-        throw new Error('Invalid personal access token');
+        throw new Error('Invalid personal access token')
       }
 
       await this.saveSession({
         user,
         token: pat,
-        expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days for PAT
-      });
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days for PAT
+      })
 
-      logger.debug('PAT login successful', { userId: user.id });
-      return { user, token: pat };
+      logger.debug('PAT login successful', { userId: user.id })
+      return { user, token: pat }
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.message;
-        throw new Error(`Token validation failed: ${message}`);
+        const message = error.response?.data?.message || error.message
+        throw new Error(`Token validation failed: ${message}`)
       }
-      throw error;
+      throw error
     }
   }
 
@@ -146,56 +146,53 @@ export class AuthManager {
     try {
       // If no token response provided, perform the device flow
       if (!tokenResponse) {
-        const deviceFlow = new OAuthDeviceFlow(this.apiUrl);
-        tokenResponse = await deviceFlow.authenticate();
+        const deviceFlow = new OAuthDeviceFlow(this.apiUrl)
+        tokenResponse = await deviceFlow.authenticate()
       }
 
       // Try to get user info from the token response or validate endpoint
-      let user: User;
-      
+      let user: User
+
       // Check if user info is included in the token response
       if (tokenResponse.user) {
-        logger.debug('Using user info from token response:', tokenResponse.user);
-        user = tokenResponse.user;
+        logger.debug('Using user info from token response:', tokenResponse.user)
+        user = tokenResponse.user
       } else {
-        logger.debug('No user info in token response, will try to fetch it');
+        logger.debug('No user info in token response, will try to fetch it')
         // Try to validate the token and get user info
         try {
-          logger.debug('Attempting to validate token to get user info');
+          logger.debug('Attempting to validate token to get user info')
           const validateResponse = await axios.post(
             `${this.apiUrl}/api/cli/auth/validate-pat`,
             {},
             {
               headers: {
-                'Authorization': `Bearer ${tokenResponse.access_token}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          user = validateResponse.data.user;
-          logger.debug('Got user info from validate endpoint');
+                Authorization: `Bearer ${tokenResponse.access_token}`,
+                'Content-Type': 'application/json',
+              },
+            },
+          )
+          user = validateResponse.data.user
+          logger.debug('Got user info from validate endpoint')
         } catch (_validateError: any) {
           // If validate endpoint doesn't exist, try alternate endpoints
-          logger.debug('Validate endpoint not available, trying /api/auth/me');
+          logger.debug('Validate endpoint not available, trying /api/auth/me')
           try {
-            const meResponse = await axios.get(
-              `${this.apiUrl}/api/auth/me`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${tokenResponse.access_token}`
-                }
-              }
-            );
-            user = meResponse.data;
-            logger.debug('Got user info from /api/auth/me');
+            const meResponse = await axios.get(`${this.apiUrl}/api/auth/me`, {
+              headers: {
+                Authorization: `Bearer ${tokenResponse.access_token}`,
+              },
+            })
+            user = meResponse.data
+            logger.debug('Got user info from /api/auth/me')
           } catch (_meError: any) {
             // Last resort: create a minimal user object
-            logger.warn('No user info endpoints available, using placeholder user');
+            logger.warn('No user info endpoints available, using placeholder user')
             user = {
               id: 'device-auth-user',
               email: 'user@device-auth',
-              name: 'Device Auth User'
-            };
+              name: 'Device Auth User',
+            }
           }
         }
       }
@@ -205,24 +202,24 @@ export class AuthManager {
         user,
         token: tokenResponse.access_token,
         refreshToken: tokenResponse.refresh_token,
-        expiresAt: Date.now() + (tokenResponse.expires_in ? tokenResponse.expires_in * 1000 : 7 * 24 * 60 * 60 * 1000)
-      });
+        expiresAt: Date.now() + (tokenResponse.expires_in ? tokenResponse.expires_in * 1000 : 7 * 24 * 60 * 60 * 1000),
+      })
 
-      logger.debug('Device flow login successful', { userId: user.id });
-      return { user, token: tokenResponse.access_token };
+      logger.debug('Device flow login successful', { userId: user.id })
+      return { user, token: tokenResponse.access_token }
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.message;
-        throw new Error(`Device flow failed: ${message}`);
+        const message = error.response?.data?.message || error.message
+        throw new Error(`Device flow failed: ${message}`)
       }
-      throw error;
+      throw error
     }
   }
 
   async logout(): Promise<void> {
     try {
-      await fs.unlink(this.authFile);
-      logger.debug('Logged out successfully');
+      await fs.unlink(this.authFile)
+      logger.debug('Logged out successfully')
     } catch (_error) {
       // File might not exist
     }
@@ -230,72 +227,72 @@ export class AuthManager {
 
   async getSession(): Promise<Session | null> {
     try {
-      const data = await fs.readFile(this.authFile, 'utf-8');
-      const decrypted = this.decrypt(data);
-      const session = JSON.parse(decrypted) as Session;
+      const data = await fs.readFile(this.authFile, 'utf-8')
+      const decrypted = this.decrypt(data)
+      const session = JSON.parse(decrypted) as Session
 
       // Check if session is expired
       if (session.expiresAt && session.expiresAt < Date.now()) {
-        await this.logout();
-        return null;
+        await this.logout()
+        return null
       }
 
-      return session;
+      return session
     } catch (_error) {
-      return null;
+      return null
     }
   }
 
   async getToken(): Promise<string | null> {
-    const session = await this.getSession();
-    return session?.token || null;
+    const session = await this.getSession()
+    return session?.token || null
   }
 
   private async saveSession(session: Session): Promise<void> {
-    await this.ensureConfigDir();
-    const encrypted = this.encrypt(JSON.stringify(session));
-    await fs.writeFile(this.authFile, encrypted, 'utf-8');
+    await this.ensureConfigDir()
+    const encrypted = this.encrypt(JSON.stringify(session))
+    await fs.writeFile(this.authFile, encrypted, 'utf-8')
     // Set restrictive permissions
-    await fs.chmod(this.authFile, 0o600);
+    await fs.chmod(this.authFile, 0o600)
   }
 
   static getInstance(): AuthManager {
     if (!AuthManager.instance) {
-      AuthManager.instance = new AuthManager();
+      AuthManager.instance = new AuthManager()
     }
-    return AuthManager.instance;
+    return AuthManager.instance
   }
 
   // Backward compatibility methods
   async getCredentials(): Promise<Session | null> {
-    return this.getSession();
+    return this.getSession()
   }
 
   async isAuthenticated(): Promise<boolean> {
-    const session = await this.getSession();
-    return session !== null && !!session.token;
+    const session = await this.getSession()
+    return session !== null && !!session.token
   }
 
   async ensureAuthenticated(): Promise<void> {
-    const isAuth = await this.isAuthenticated();
+    const isAuth = await this.isAuthenticated()
     if (!isAuth) {
-      throw new Error('Not authenticated. Please run "veas login" first.');
+      throw new Error('Not authenticated. Please run "veas login" first.')
     }
   }
 
   async refreshToken(): Promise<void> {
-    const session = await this.getSession();
+    const session = await this.getSession()
     if (!session) {
-      throw new Error('No stored session found');
+      throw new Error('No stored session found')
     }
     // For now, just log out to force re-login
-    await this.logout();
+    await this.logout()
   }
 
   async createPAT(name: string, scopes: string[] = ['read', 'write']): Promise<string> {
-    const session = await this.getSession();
+    const session = await this.getSession()
     if (!session) {
-      throw new Error('Not authenticated. Please login first.');
+      throw new Error('Not authenticated. Please login first.')
     }
 
     try {
@@ -304,47 +301,44 @@ export class AuthManager {
         { name, scopes },
         {
           headers: {
-            'Authorization': `Bearer ${session.token}`,
+            Authorization: `Bearer ${session.token}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'veas-cli/0.1.0'
-          }
-        }
-      );
+            'User-Agent': 'veas-cli/0.1.0',
+          },
+        },
+      )
 
-      return response.data.token;
+      return response.data.token
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.message;
-        throw new Error(`Failed to create PAT: ${message}`);
+        const message = error.response?.data?.message || error.message
+        throw new Error(`Failed to create PAT: ${message}`)
       }
-      throw error;
+      throw error
     }
   }
 
   async listPATs(): Promise<any[]> {
-    const session = await this.getSession();
+    const session = await this.getSession()
     if (!session) {
-      throw new Error('Not authenticated. Please login first.');
+      throw new Error('Not authenticated. Please login first.')
     }
 
     try {
-      const response = await axios.get(
-        `${this.apiUrl}/api/cli/pat/list`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.token}`,
-            'User-Agent': 'veas-cli/0.1.0'
-          }
-        }
-      );
+      const response = await axios.get(`${this.apiUrl}/api/cli/pat/list`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          'User-Agent': 'veas-cli/0.1.0',
+        },
+      })
 
-      return response.data.tokens || [];
+      return response.data.tokens || []
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.message;
-        throw new Error(`Failed to list PATs: ${message}`);
+        const message = error.response?.data?.message || error.message
+        throw new Error(`Failed to list PATs: ${message}`)
       }
-      throw error;
+      throw error
     }
   }
 }

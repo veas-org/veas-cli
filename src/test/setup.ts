@@ -1,8 +1,8 @@
-import { vi } from 'vitest';
+import { vi } from 'vitest'
 
 // Mock environment variables
-process.env.VEAS_API_URL = 'http://localhost:3000';
-process.env.NODE_ENV = 'test';
+process.env.VEAS_API_URL = 'http://localhost:3000'
+process.env.NODE_ENV = 'test'
 
 // Mock os module globally
 vi.mock('os', () => ({
@@ -16,4 +16,4 @@ vi.mock('os', () => ({
   hostname: vi.fn(() => 'test-host'),
   platform: vi.fn(() => 'darwin'),
   arch: vi.fn(() => 'x64'),
-}));
+}))

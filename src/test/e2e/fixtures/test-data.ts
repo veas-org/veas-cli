@@ -21,7 +21,7 @@ export const TEST_PROJECTS = {
     key: 'API',
     description: 'Backend API services',
   },
-};
+}
 
 export const TEST_ISSUES = {
   sampleTask: {
@@ -45,7 +45,7 @@ export const TEST_ISSUES = {
     priority: 'medium',
     status: 'todo',
   },
-};
+}
 
 export const TEST_USERS = {
   testUser: {
@@ -62,7 +62,7 @@ export const TEST_USERS = {
     first_name: 'Admin',
     last_name: 'Tester',
   },
-};
+}
 
 export const TEST_ARTICLES = {
   sampleArticle: {
@@ -71,7 +71,7 @@ export const TEST_ARTICLES = {
     tags: ['test', 'e2e', 'automation'],
     folder_id: null,
   },
-};
+}
 
 export const TEST_ERROR_SCENARIOS = {
   networkErrors: [
@@ -108,7 +108,7 @@ export const TEST_ERROR_SCENARIOS = {
       expectedError: /required|missing|auth/i,
     },
   ],
-};
+}
 
 export const PERFORMANCE_THRESHOLDS = {
   connectionTimeout: 5000, // 5 seconds
@@ -116,14 +116,14 @@ export const PERFORMANCE_THRESHOLDS = {
   toolExecutionTimeout: 10000, // 10 seconds
   avgResponseTime: 1000, // 1 second average
   maxResponseTime: 5000, // 5 seconds max
-};
+}
 
 /**
  * Generate test data with timestamps
  */
-export function generateTestData(prefix: string = 'e2e') {
-  const timestamp = Date.now();
-  
+export function generateTestData(prefix = 'e2e') {
+  const timestamp = Date.now()
+
   return {
     project: {
       name: `${prefix}-project-${timestamp}`,
@@ -141,28 +141,23 @@ export function generateTestData(prefix: string = 'e2e') {
       content: `# Test Article\n\nCreated at ${new Date().toISOString()}`,
       tags: [prefix, 'test', 'automated'],
     },
-  };
+  }
 }
 
 /**
  * Clean up test data markers
  */
 export function isTestData(item: any): boolean {
-  const testPrefixes = ['e2e', 'test', 'E2E Test'];
-  const testPatterns = [
-    /e2e[-_]test/i,
-    /test[-_]\d+/i,
-    /E2E Test/i,
-  ];
-  
+  const testPrefixes = ['e2e', 'test', 'E2E Test']
+  const testPatterns = [/e2e[-_]test/i, /test[-_]\d+/i, /E2E Test/i]
+
   const checkString = (str: string) => {
-    return testPrefixes.some(prefix => str.includes(prefix)) ||
-           testPatterns.some(pattern => pattern.test(str));
-  };
-  
+    return testPrefixes.some((prefix) => str.includes(prefix)) || testPatterns.some((pattern) => pattern.test(str))
+  }
+
   return (
     (item.name && checkString(item.name)) ||
     (item.title && checkString(item.title)) ||
     (item.summary && checkString(item.summary))
-  );
+  )
 }

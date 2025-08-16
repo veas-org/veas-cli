@@ -1,4 +1,4 @@
-import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { Tool } from '@modelcontextprotocol/sdk/types.js'
 
 /**
  * Standalone MCP tools for offline mode or testing
@@ -245,7 +245,7 @@ export const standaloneTools: Tool[] = [
       required: ['project_id', 'name', 'start_date', 'end_date'],
     },
   },
-];
+]
 
 /**
  * Execute a standalone tool (mock implementation)
@@ -261,7 +261,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           name: 'Test User',
           organizations: ['Startup'],
         },
-      };
+      }
 
     case 'mcp-project-manager_list_my_projects':
       return {
@@ -280,7 +280,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           },
         ],
         total: 2,
-      };
+      }
 
     case 'mcp-project-manager_list_my_issues':
       return {
@@ -309,7 +309,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           },
         ],
         total: 2,
-      };
+      }
 
     case 'mcp-project-manager_get_project':
       return {
@@ -329,7 +329,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
             },
           },
         },
-      };
+      }
 
     case 'mcp-project-manager_update_issue':
       return {
@@ -342,7 +342,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           updated_at: new Date().toISOString(),
         },
         success: true,
-      };
+      }
 
     case 'mcp-project-manager_create_issue':
       return {
@@ -355,13 +355,15 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           priority: args.priority || 'medium',
           status: 'todo',
           created_at: new Date().toISOString(),
-          assignee: args.assignee_id ? {
-            id: args.assignee_id,
-            name: 'Assigned User',
-          } : null,
+          assignee: args.assignee_id
+            ? {
+                id: args.assignee_id,
+                name: 'Assigned User',
+              }
+            : null,
         },
         success: true,
-      };
+      }
 
     case 'mcp-articles_create_article':
       return {
@@ -378,7 +380,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           },
         },
         success: true,
-      };
+      }
 
     case 'mcp-project-manager_create_sprint':
       return {
@@ -393,7 +395,7 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           created_at: new Date().toISOString(),
         },
         success: true,
-      };
+      }
 
     case 'mcp-chat_send_message':
       return {
@@ -408,9 +410,9 @@ export async function executeStandaloneTool(name: string, args: any): Promise<an
           created_at: new Date().toISOString(),
         },
         success: true,
-      };
+      }
 
     default:
-      throw new Error(`Tool not implemented: ${name}`);
+      throw new Error(`Tool not implemented: ${name}`)
   }
 }

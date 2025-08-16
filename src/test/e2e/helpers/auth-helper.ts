@@ -3,16 +3,16 @@
  * Provides utilities for managing authentication in tests
  */
 
-import { AuthManager } from '../../../auth/auth-manager.js';
-import { E2E_CONFIG, TEST_TOKENS } from '../setup.js';
-import type { AuthCredentials } from '../../../auth/auth-manager.js';
+import { AuthManager } from '../../../auth/auth-manager.js'
+import { E2E_CONFIG, TEST_TOKENS } from '../setup.js'
+import type { AuthCredentials } from '../../../auth/auth-manager.js'
 
 export class E2EAuthHelper {
-  private authManager: AuthManager;
-  private originalCredentials?: AuthCredentials;
+  private authManager: AuthManager
+  private originalCredentials?: AuthCredentials
 
   constructor() {
-    this.authManager = AuthManager.getInstance();
+    this.authManager = AuthManager.getInstance()
   }
 
   /**
@@ -20,10 +20,10 @@ export class E2EAuthHelper {
    */
   async saveAuthState(): Promise<void> {
     try {
-      this.originalCredentials = await this.authManager.getCredentials();
+      this.originalCredentials = await this.authManager.getCredentials()
     } catch (_error) {
       // No credentials to save
-      this.originalCredentials = undefined;
+      this.originalCredentials = undefined
     }
   }
 
@@ -32,27 +32,27 @@ export class E2EAuthHelper {
    */
   async restoreAuthState(): Promise<void> {
     if (this.originalCredentials) {
-      await this.authManager.saveCredentials(this.originalCredentials);
+      await this.authManager.saveCredentials(this.originalCredentials)
     } else {
-      await this.authManager.logout();
+      await this.authManager.logout()
     }
   }
 
   /**
    * Login with test credentials
    */
-  async loginWithTestUser(email: string = 'test@example.com', password: string = 'test123'): Promise<string> {
+  async loginWithTestUser(email = 'test@example.com', password = 'test123'): Promise<string> {
     const credentials = await this.authManager.login({
       type: 'password',
       email,
       password,
-    });
+    })
 
     if (!credentials.token) {
-      throw new Error('Login failed: no token received');
+      throw new Error('Login failed: no token received')
     }
 
-    return credentials.token;
+    return credentials.token
   }
 
   /**
@@ -70,60 +70,60 @@ export class E2EAuthHelper {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
-    };
+    }
 
-    await this.authManager.saveCredentials(credentials);
+    await this.authManager.saveCredentials(credentials)
   }
 
   /**
    * Clear all authentication
    */
   async clearAuth(): Promise<void> {
-    await this.authManager.logout();
+    await this.authManager.logout()
   }
 
   /**
    * Create a Personal Access Token
    */
-  async createPAT(name: string = 'E2E Test Token', scopes: string[] = ['*']): Promise<string> {
-    const token = await this.authManager.getToken();
+  async createPAT(name = 'E2E Test Token', scopes: string[] = ['*']): Promise<string> {
+    const token = await this.authManager.getToken()
     if (!token) {
-      throw new Error('No authentication token available');
+      throw new Error('No authentication token available')
     }
 
     const response = await fetch(`${E2E_CONFIG.apiUrl}/api/cli/auth/pat/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         name,
         scopes,
       }),
-    });
+    })
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to create PAT: ${error}`);
+      const error = await response.text()
+      throw new Error(`Failed to create PAT: ${error}`)
     }
 
-    const result = await response.json();
-    return result.token;
+    const result = await response.json()
+    return result.token
   }
 
   /**
    * Get current token
    */
   async getCurrentToken(): Promise<string | null> {
-    return this.authManager.getToken();
+    return this.authManager.getToken()
   }
 
   /**
    * Check if authenticated
    */
   async isAuthenticated(): Promise<boolean> {
-    return this.authManager.isAuthenticated();
+    return this.authManager.isAuthenticated()
   }
 
   /**
@@ -139,13 +139,13 @@ export class E2EAuthHelper {
       body: JSON.stringify({
         client_id: 'veas-cli-e2e-test',
       }),
-    });
+    })
 
     if (!deviceResponse.ok) {
-      throw new Error('Failed to start device auth flow');
+      throw new Error('Failed to start device auth flow')
     }
 
-    const { device_code, user_code } = await deviceResponse.json();
+    const { device_code, user_code } = await deviceResponse.json()
 
     // In a real test, you would automate the browser flow
     // For E2E testing, we'll simulate the approval
@@ -153,20 +153,20 @@ export class E2EAuthHelper {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${TEST_TOKENS.validCLI}`, // Use a test token
+        Authorization: `Bearer ${TEST_TOKENS.validCLI}`, // Use a test token
       },
       body: JSON.stringify({
         user_code,
       }),
-    });
+    })
 
     if (!approvalResponse.ok) {
-      throw new Error('Failed to approve device');
+      throw new Error('Failed to approve device')
     }
 
     // Poll for token
-    let attempts = 0;
-    const maxAttempts = 10;
+    let attempts = 0
+    const maxAttempts = 10
 
     while (attempts < maxAttempts) {
       const tokenResponse = await fetch(`${E2E_CONFIG.apiUrl}/api/cli/auth/device/token`, {
@@ -178,19 +178,19 @@ export class E2EAuthHelper {
           device_code,
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
         }),
-      });
+      })
 
       if (tokenResponse.ok) {
-        const { access_token } = await tokenResponse.json();
-        return access_token;
+        const { access_token } = await tokenResponse.json()
+        return access_token
       }
 
       // Wait before next attempt
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      attempts++;
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      attempts++
     }
 
-    throw new Error('Device auth timeout');
+    throw new Error('Device auth timeout')
   }
 
   /**
@@ -202,13 +202,13 @@ export class E2EAuthHelper {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-      });
+      })
 
-      return response.ok;
+      return response.ok
     } catch (_error) {
-      return false;
+      return false
     }
   }
 
@@ -217,21 +217,21 @@ export class E2EAuthHelper {
    */
   async getBestToken(): Promise<string | null> {
     // Check for PAT in environment
-    const envPat = process.env.VEAS_PAT || process.env.PAT;
+    const envPat = process.env.VEAS_PAT || process.env.PAT
     if (envPat) {
-      return envPat;
+      return envPat
     }
 
     // Check for MCP_TOKEN in environment
-    const mcpToken = process.env.MCP_TOKEN;
+    const mcpToken = process.env.MCP_TOKEN
     if (mcpToken) {
-      return mcpToken;
+      return mcpToken
     }
 
     // Fall back to CLI token
-    return this.authManager.getToken();
+    return this.authManager.getToken()
   }
 }
 
 // Export singleton instance
-export const authHelper = new E2EAuthHelper();
+export const authHelper = new E2EAuthHelper()

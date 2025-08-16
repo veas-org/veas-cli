@@ -3,12 +3,12 @@
  * Handles both CLI tokens and PATs
  */
 
-import { AuthManager } from '../auth/auth-manager.js';
-import { logger } from '../utils/logger.js';
+import { AuthManager } from '../auth/auth-manager.js'
+import { logger } from '../utils/logger.js'
 
 export interface AuthToken {
-  token: string;
-  type: 'pat' | 'cli' | 'unknown';
+  token: string
+  type: 'pat' | 'cli' | 'unknown'
 }
 
 /**
@@ -17,50 +17,50 @@ export interface AuthToken {
  */
 export async function getBestAuthToken(): Promise<AuthToken> {
   // Check for PAT in environment
-  const envPat = process.env.VEAS_PAT || process.env.PAT;
+  const envPat = process.env.VEAS_PAT || process.env.PAT
   if (envPat) {
-    logger.debug('Using PAT from environment');
+    logger.debug('Using PAT from environment')
     return {
       token: envPat,
-      type: 'pat'
-    };
+      type: 'pat',
+    }
   }
 
   // Check for MCP_TOKEN in environment (from Claude Desktop)
-  const mcpToken = process.env.MCP_TOKEN;
+  const mcpToken = process.env.MCP_TOKEN
   if (mcpToken) {
-    logger.debug('Using MCP_TOKEN from environment');
+    logger.debug('Using MCP_TOKEN from environment')
     return {
       token: mcpToken,
-      type: mcpToken.includes('_') ? 'pat' : 'unknown'
-    };
+      type: mcpToken.includes('_') ? 'pat' : 'unknown',
+    }
   }
 
   // Check for stored PAT token from login
-  const authManager = AuthManager.getInstance();
-  const session = await authManager.getSession();
-  const storedPAT = (session as any)?.patToken || session?.token;
-  
+  const authManager = AuthManager.getInstance()
+  const session = await authManager.getSession()
+  const storedPAT = (session as any)?.patToken || session?.token
+
   if (storedPAT) {
-    logger.debug('Using PAT token from device authentication');
+    logger.debug('Using PAT token from device authentication')
     return {
       token: storedPAT,
-      type: 'pat'
-    };
-  }
-  
-  // Fall back to CLI token
-  const cliToken = await authManager.getToken();
-  
-  if (cliToken) {
-    logger.debug('Using CLI token from device authentication');
-    return {
-      token: cliToken,
-      type: 'cli'
-    };
+      type: 'pat',
+    }
   }
 
-  throw new Error('No authentication token available. Please run "veas login" or set VEAS_PAT environment variable.');
+  // Fall back to CLI token
+  const cliToken = await authManager.getToken()
+
+  if (cliToken) {
+    logger.debug('Using CLI token from device authentication')
+    return {
+      token: cliToken,
+      type: 'cli',
+    }
+  }
+
+  throw new Error('No authentication token available. Please run "veas login" or set VEAS_PAT environment variable.')
 }
 
 /**
@@ -69,15 +69,15 @@ export async function getBestAuthToken(): Promise<AuthToken> {
 export function prepareMCPHeaders(authToken: AuthToken): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Accept': 'application/json, text/event-stream',
-  };
+    Accept: 'application/json, text/event-stream',
+  }
 
   // Always include both header formats for compatibility
-  headers['X-MCP-Token'] = authToken.token;
-  headers['Authorization'] = `Bearer ${authToken.token}`;
+  headers['X-MCP-Token'] = authToken.token
+  headers['Authorization'] = `Bearer ${authToken.token}`
 
   // Add token type hint for debugging
-  headers['X-Token-Type'] = authToken.type;
+  headers['X-Token-Type'] = authToken.type
 
-  return headers;
+  return headers
 }
