@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { createMCPClient, type MCPTestClient } from './helpers/mcp-client.js'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { expectConnectionError, expectMCPError, expectMCPSuccess, expectResponseTime } from './helpers/assertions.js'
 import { authHelper } from './helpers/auth-helper.js'
-import { TEST_TOKENS, waitForServer, E2E_CONFIG } from './setup.js'
-import { expectMCPSuccess, expectMCPError, expectResponseTime, expectConnectionError } from './helpers/assertions.js'
+import { createMCPClient, type MCPTestClient } from './helpers/mcp-client.js'
+import { TEST_TOKENS, waitForServer } from './setup.js'
 
 describe.skip('MCP Connection E2E Tests', () => {
   let client: MCPTestClient
@@ -261,7 +261,7 @@ describe.skip('MCP Connection E2E Tests', () => {
       expect(avgTime).toBeLessThan(1000)
 
       // No single request should take more than 5 seconds
-      times.forEach((time) => {
+      times.forEach(time => {
         expect(time).toBeLessThan(5000)
       })
     })
@@ -283,11 +283,11 @@ describe.skip('MCP Connection E2E Tests', () => {
       })
 
       // Make concurrent requests
-      const promises = clients.map((c) => c.listTools())
+      const promises = clients.map(c => c.listTools())
       const results = await Promise.allSettled(promises)
 
       // All should succeed
-      results.forEach((result) => {
+      results.forEach(result => {
         expect(result.status).toBe('fulfilled')
       })
     })

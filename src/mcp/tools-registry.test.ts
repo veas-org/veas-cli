@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockFetchResponse, mockTools } from '../test/mocks'
 import { getMCPTools } from './tools-registry'
-import { mockTools, mockFetchResponse } from '../test/mocks'
 
 describe('getMCPTools', () => {
   beforeEach(() => {

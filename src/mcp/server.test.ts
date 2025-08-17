@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { MCPServer } from './server'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthManager } from '../auth/auth-manager'
 import { CacheManager } from '../cache/cache-manager'
-import { mockTools, mockFetchResponse } from '../test/mocks'
-import * as toolsRegistry from './tools-registry'
+import { mockFetchResponse, mockTools } from '../test/mocks'
 import * as authWrapper from './auth-wrapper'
+import { MCPServer } from './server'
+import * as toolsRegistry from './tools-registry'
 
 // Mock dependencies
 vi.mock('../auth/auth-manager')

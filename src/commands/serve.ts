@@ -1,8 +1,8 @@
 import { spinner } from '@clack/prompts'
-import pc from 'picocolors'
-import { DirectMCPServer } from '../mcp/direct-server.js'
-import { AuthManager } from '../auth/auth-manager.js'
 import * as dotenv from 'dotenv'
+import pc from 'picocolors'
+import { AuthManager } from '../auth/auth-manager.js'
+import { DirectMCPServer } from '../mcp/direct-server.js'
 import { logger } from '../utils/logger.js'
 
 // Load environment variables (prioritize .env.local over .env)

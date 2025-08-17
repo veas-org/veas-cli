@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { testConnection, listProjects, createIssue, testDirectMCP } from './mcp'
-import { AuthManager } from '../auth/auth-manager'
 import * as prompts from '@clack/prompts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthManager } from '../auth/auth-manager'
 import { logger } from '../utils/logger'
+import { createIssue, listProjects, testConnection, testDirectMCP } from './mcp'
 
 vi.mock('../auth/auth-manager')
 vi.mock('@clack/prompts')

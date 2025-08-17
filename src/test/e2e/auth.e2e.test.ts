@@ -260,7 +260,7 @@ describe.skip('Authentication E2E Tests', () => {
       }
 
       // All requests should succeed
-      results.forEach((tools) => {
+      results.forEach(tools => {
         expect(Array.isArray(tools)).toBe(true)
       })
     })

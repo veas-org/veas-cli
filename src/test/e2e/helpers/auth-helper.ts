@@ -3,9 +3,9 @@
  * Provides utilities for managing authentication in tests
  */
 
+import type { AuthCredentials } from '../../../auth/auth-manager.js'
 import { AuthManager } from '../../../auth/auth-manager.js'
 import { E2E_CONFIG, TEST_TOKENS } from '../setup.js'
-import type { AuthCredentials } from '../../../auth/auth-manager.js'
 
 export class E2EAuthHelper {
   private authManager: AuthManager
@@ -186,7 +186,7 @@ export class E2EAuthHelper {
       }
 
       // Wait before next attempt
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 1000))
       attempts++
     }
 

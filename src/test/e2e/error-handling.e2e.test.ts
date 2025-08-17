@@ -152,12 +152,12 @@ describe.skip('Error Handling E2E Tests', () => {
       client.setToken(token!)
 
       // Make many rapid requests
-      const promises = Array.from({ length: 50 }, () => client.listTools().catch((error) => ({ error })))
+      const promises = Array.from({ length: 50 }, () => client.listTools().catch(error => ({ error })))
 
       const results = await Promise.all(promises)
 
       // Check if any were rate limited
-      const rateLimited = results.filter((r) => r.error?.message?.includes('rate') || r.error?.message?.includes('429'))
+      const rateLimited = results.filter(r => r.error?.message?.includes('rate') || r.error?.message?.includes('429'))
 
       // If rate limiting is implemented, some should fail
       if (rateLimited.length > 0) {
@@ -237,7 +237,7 @@ describe.skip('Error Handling E2E Tests', () => {
         } catch (error: any) {
           lastError = error
           if (i < maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 100))
+            await new Promise(resolve => setTimeout(resolve, 100))
           }
         }
       }
@@ -290,7 +290,7 @@ describe.skip('Error Handling E2E Tests', () => {
           console.log(`${testCase.scenario}: ${error.message}`)
 
           // Check if error message contains helpful keywords
-          const hasHelpfulMessage = testCase.expectedWords.some((word) =>
+          const hasHelpfulMessage = testCase.expectedWords.some(word =>
             error.message.toLowerCase().includes(word.toLowerCase()),
           )
 

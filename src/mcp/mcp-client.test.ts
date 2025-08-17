@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { MCPClient } from './mcp-client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthManager } from '../auth/auth-manager'
+import { MCPClient } from './mcp-client'
 
 vi.mock('../auth/auth-manager')
 
@@ -28,12 +28,12 @@ describe('MCPClient', () => {
   describe('constructor', () => {
     it('should initialize with base URL', () => {
       const customClient = new MCPClient('https://custom.api.com')
-      expect(customClient['baseUrl']).toBe('https://custom.api.com')
+      expect(customClient.baseUrl).toBe('https://custom.api.com')
     })
 
     it('should use default URL if not provided', () => {
       const defaultClient = new MCPClient()
-      expect(defaultClient['baseUrl']).toBe('http://localhost:3000')
+      expect(defaultClient.baseUrl).toBe('http://localhost:3000')
     })
   })
 
@@ -227,7 +227,7 @@ describe('MCPClient', () => {
         json: async () => ({ jsonrpc: '2.0', result: 'ok' }),
       } as Response)
 
-      await client['request'](
+      await client.request(
         'custom/method',
         { data: 'test' },
         {
@@ -263,7 +263,7 @@ describe('MCPClient', () => {
 
       // This would need implementation in the actual client
       // For now, just test single request
-      await client['request']('test', {})
+      await client.request('test', {})
     })
 
     it('should handle network timeouts', async () => {
@@ -275,7 +275,7 @@ describe('MCPClient', () => {
       timeoutError.name = 'AbortError'
       vi.mocked(global.fetch).mockRejectedValueOnce(timeoutError)
 
-      await expect(client['request']('test', {})).rejects.toThrow('Request timeout')
+      await expect(client.request('test', {})).rejects.toThrow('Request timeout')
     })
 
     it('should retry on transient failures', async () => {
@@ -291,7 +291,7 @@ describe('MCPClient', () => {
         } as Response)
 
       // The request method doesn't support retry directly, so we just test that it rejects
-      await expect(client['request']('test', {})).rejects.toThrow('Network error')
+      await expect(client.request('test', {})).rejects.toThrow('Network error')
     })
   })
 
@@ -348,12 +348,12 @@ describe('MCPClient', () => {
       expect(client.isConnected()).toBe(false)
 
       // After successful initialization
-      client['connected'] = true
+      client.connected = true
       expect(client.isConnected()).toBe(true)
     })
 
     it('should disconnect properly', async () => {
-      client['connected'] = true
+      client.connected = true
       await client.disconnect()
 
       expect(client.isConnected()).toBe(false)

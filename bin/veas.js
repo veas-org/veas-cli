@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 // Load environment variables if .env.local exists
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import { existsSync } from 'fs'
+import { fileURLToPath } from 'node:url'
 import { config } from 'dotenv'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))

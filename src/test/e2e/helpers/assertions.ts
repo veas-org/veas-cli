@@ -50,7 +50,7 @@ export function expectToolExists(tools: any[], toolName: string): void {
   expect(tools).toBeDefined()
   expect(Array.isArray(tools)).toBe(true)
 
-  const tool = tools.find((t) => t.name === toolName)
+  const tool = tools.find(t => t.name === toolName)
   expect(tool).toBeDefined()
   expect(tool.description).toBeDefined()
   expect(tool.inputSchema).toBeDefined()

@@ -1,9 +1,9 @@
+import * as crypto from 'node:crypto'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import { confirm, spinner, text } from '@clack/prompts'
-import * as crypto from 'crypto'
 import glob from 'fast-glob'
-import * as fs from 'fs/promises'
 import * as yaml from 'js-yaml'
-import * as path from 'path'
 import pc from 'picocolors'
 import { AuthManager } from '../auth/auth-manager.js'
 import type { VeasConfig, VeasConfigFolder } from '../config/veas-config-parser.js'
@@ -140,7 +140,7 @@ class DocsSyncer {
 
       if (result.errors.length > 0) {
         logger.warn('Sync completed with errors:')
-        result.errors.forEach((err) => logger.error(`  - ${err}`))
+        result.errors.forEach(err => logger.error(`  - ${err}`))
       }
 
       return result
@@ -160,7 +160,7 @@ class DocsSyncer {
     // Set up file watcher
     const chokidar = await import('chokidar')
     const roots = this.configParser.getSyncRoots()
-    const watchPaths = roots.map((r) => r.absolutePath)
+    const watchPaths = roots.map(r => r.absolutePath)
 
     const watcher = chokidar.watch(watchPaths, {
       ignored: this.config.sync.exclude || [],
@@ -176,7 +176,7 @@ class DocsSyncer {
       if (syncTimeout) clearTimeout(syncTimeout)
       syncTimeout = setTimeout(() => {
         logger.info('File changes detected, syncing...')
-        this.sync().catch((err) => logger.error('Sync error:', err))
+        this.sync().catch(err => logger.error('Sync error:', err))
       }, this.config.sync.watch?.debounce || 1000)
     }
 
@@ -285,7 +285,7 @@ class DocsSyncer {
       const name = await text({
         message: 'Enter publication name:',
         placeholder: 'My Project Documentation',
-        validate: (value) => {
+        validate: value => {
           if (!value.trim()) return 'Publication name is required'
           return
         },
@@ -480,7 +480,6 @@ class DocsSyncer {
           logger.info(`Created folder: ${remoteName}`)
         } catch (error: any) {
           logger.warn(`Failed to create folder "${remoteName}": ${error.message}`)
-          continue
         }
       }
     }
@@ -562,7 +561,7 @@ class DocsSyncer {
 
     // Use filename without extension
     const basename = path.basename(relativePath, path.extname(relativePath))
-    return basename.replace(/[-_]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+    return basename.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   private hashContent(content: string): string {

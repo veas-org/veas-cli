@@ -1,6 +1,6 @@
+import { EventEmitter } from 'node:events'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
-import { prepareMCPHeaders, type AuthToken, getBestAuthToken } from './auth-wrapper.js'
-import { EventEmitter } from 'events'
+import { type AuthToken, getBestAuthToken, prepareMCPHeaders } from './auth-wrapper.js'
 
 // EventSource is now globally available in Node.js 18+
 // No need to declare it anymore as it conflicts with Node.js types
@@ -30,7 +30,7 @@ export class SSEClient extends EventEmitter {
       this.emit('open')
     }
 
-    this.eventSource.onmessage = (event) => {
+    this.eventSource.onmessage = event => {
       try {
         const data = JSON.parse(event.data)
         this.emit('message', data)
@@ -39,7 +39,7 @@ export class SSEClient extends EventEmitter {
       }
     }
 
-    this.eventSource.onerror = (error) => {
+    this.eventSource.onerror = error => {
       this.emit('error', error)
       // Attempt reconnection logic could go here
     }
@@ -153,7 +153,7 @@ export async function getMCPToolsViaSSE(tokenOrAuthToken?: string | AuthToken): 
   if (contentType.includes('text/event-stream') || text.startsWith('event:')) {
     // Parse SSE format
     const lines = text.split('\n')
-    const dataLine = lines.find((line) => line.startsWith('data: '))
+    const dataLine = lines.find(line => line.startsWith('data: '))
     if (dataLine) {
       const jsonData = dataLine.substring(6)
       result = JSON.parse(jsonData)
@@ -245,7 +245,7 @@ export async function executeMCPToolViaSSE(
   if (contentType.includes('text/event-stream') || text.startsWith('event:')) {
     // Parse SSE format
     const lines = text.split('\n')
-    const dataLine = lines.find((line) => line.startsWith('data: '))
+    const dataLine = lines.find(line => line.startsWith('data: '))
     if (dataLine) {
       const jsonData = dataLine.substring(6)
       result = JSON.parse(jsonData)

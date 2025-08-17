@@ -1,7 +1,7 @@
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 import { spinner } from '@clack/prompts'
 import pc from 'picocolors'
-import { exec } from 'child_process'
-import { promisify } from 'util'
 import { logger } from '../utils/logger.js'
 
 const execAsync = promisify(exec)
@@ -63,7 +63,7 @@ export class OAuthDeviceFlow {
     logger.debug('[Device Flow] Poll interval:', pollInterval, 'ms')
 
     while (true) {
-      await new Promise((resolve) => setTimeout(resolve, pollInterval))
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
 
       try {
         logger.debug('[Device Flow] Polling for token...')
@@ -107,11 +107,10 @@ export class OAuthDeviceFlow {
         if (error.error === 'authorization_pending') {
           // Continue polling
           logger.debug('[Device Flow] Authorization pending, continuing to poll...')
-          continue
         } else if (error.error === 'slow_down') {
           // Increase polling interval
           logger.debug('[Device Flow] Slowing down poll rate...')
-          await new Promise((resolve) => setTimeout(resolve, 5000))
+          await new Promise(resolve => setTimeout(resolve, 5000))
         } else {
           logger.error('[Device Flow] Poll failed with error:', error)
           throw new Error(error.error_description || error.error)

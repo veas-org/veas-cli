@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { login, logout, status } from './auth'
-import { AuthManager } from '../auth/auth-manager'
 import * as prompts from '@clack/prompts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthManager } from '../auth/auth-manager'
 import { mockUser } from '../test/mocks'
+import { login, logout, status } from './auth'
 
 // Mock dependencies
 vi.mock('../auth/auth-manager')

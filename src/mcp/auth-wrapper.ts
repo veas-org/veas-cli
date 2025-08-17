@@ -74,7 +74,7 @@ export function prepareMCPHeaders(authToken: AuthToken): Record<string, string> 
 
   // Always include both header formats for compatibility
   headers['X-MCP-Token'] = authToken.token
-  headers['Authorization'] = `Bearer ${authToken.token}`
+  headers.Authorization = `Bearer ${authToken.token}`
 
   // Add token type hint for debugging
   headers['X-Token-Type'] = authToken.type

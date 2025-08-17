@@ -1,17 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { logger, LogLevel } from './logger'
-import pc from 'picocolors'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { LogLevel, logger } from './logger'
 
 vi.mock('picocolors', () => ({
   default: {
-    cyan: vi.fn((text) => `[cyan]${text}[/cyan]`),
-    yellow: vi.fn((text) => `[yellow]${text}[/yellow]`),
-    red: vi.fn((text) => `[red]${text}[/red]`),
-    green: vi.fn((text) => `[green]${text}[/green]`),
-    gray: vi.fn((text) => `[gray]${text}[/gray]`),
-    dim: vi.fn((text) => `[dim]${text}[/dim]`),
-    bold: vi.fn((text) => `[bold]${text}[/bold]`),
-    underline: vi.fn((text) => `[underline]${text}[/underline]`),
+    cyan: vi.fn(text => `[cyan]${text}[/cyan]`),
+    yellow: vi.fn(text => `[yellow]${text}[/yellow]`),
+    red: vi.fn(text => `[red]${text}[/red]`),
+    green: vi.fn(text => `[green]${text}[/green]`),
+    gray: vi.fn(text => `[gray]${text}[/gray]`),
+    dim: vi.fn(text => `[dim]${text}[/dim]`),
+    bold: vi.fn(text => `[bold]${text}[/bold]`),
+    underline: vi.fn(text => `[underline]${text}[/underline]`),
   },
 }))
 

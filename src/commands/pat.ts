@@ -1,7 +1,7 @@
+import { select, text } from '@clack/prompts'
 import pc from 'picocolors'
-import { logger } from '../utils/logger.js'
 import { AuthManager } from '../auth/auth-manager.js'
-import { text, select } from '@clack/prompts'
+import { logger } from '../utils/logger.js'
 
 export async function createPAT(): Promise<void> {
   try {
@@ -63,7 +63,7 @@ export async function createPAT(): Promise<void> {
       },
       body: JSON.stringify({
         name,
-        scopes: scopes === '*' ? ['*'] : scopes.split(',').map((s) => s.trim()),
+        scopes: scopes === '*' ? ['*'] : scopes.split(',').map(s => s.trim()),
       }),
     })
 

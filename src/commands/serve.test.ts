@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { DirectMCPServer } from '../mcp/direct-server'
-import { AuthManager } from '../auth/auth-manager'
 import * as prompts from '@clack/prompts'
 import * as dotenv from 'dotenv'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthManager } from '../auth/auth-manager'
+import { DirectMCPServer } from '../mcp/direct-server'
 
 // Mock dependencies before importing serve
 vi.mock('../mcp/direct-server')
@@ -125,7 +125,7 @@ describe('serve command', () => {
       expect(processOnSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function))
 
       // Test SIGINT handler
-      const sigintHandler = processOnSpy.mock.calls.find((call) => call[0] === 'SIGINT')?.[1]
+      const sigintHandler = processOnSpy.mock.calls.find(call => call[0] === 'SIGINT')?.[1]
 
       if (sigintHandler) {
         await expect(sigintHandler()).rejects.toThrow('process.exit called')

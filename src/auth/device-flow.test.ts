@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { OAuthDeviceFlow } from './device-flow'
+import * as util from 'node:util'
 import * as prompts from '@clack/prompts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { logger } from '../utils/logger'
-import * as util from 'util'
+import { OAuthDeviceFlow } from './device-flow'
 
 vi.mock('@clack/prompts')
 vi.mock('../utils/logger', () => ({
@@ -15,7 +15,7 @@ vi.mock('../utils/logger', () => ({
   },
 }))
 vi.mock('util', () => ({
-  promisify: vi.fn((fn) => {
+  promisify: vi.fn(fn => {
     return (...args: any[]) => {
       return new Promise((resolve, reject) => {
         const callback = args[args.length - 1]
@@ -57,14 +57,14 @@ describe('OAuthDeviceFlow', () => {
   describe('constructor', () => {
     it('should use provided API URL', () => {
       const flow = new OAuthDeviceFlow('https://custom.api.com')
-      expect(flow['apiUrl']).toBe('https://custom.api.com')
+      expect(flow.apiUrl).toBe('https://custom.api.com')
     })
 
     it('should use environment variable if no URL provided', () => {
       const originalEnv = process.env.VEAS_API_URL
       process.env.VEAS_API_URL = 'https://env.api.com'
       const flow = new OAuthDeviceFlow()
-      expect(flow['apiUrl']).toBe('https://env.api.com')
+      expect(flow.apiUrl).toBe('https://env.api.com')
       process.env.VEAS_API_URL = originalEnv
     })
 
@@ -72,7 +72,7 @@ describe('OAuthDeviceFlow', () => {
       const originalEnv = process.env.VEAS_API_URL
       delete process.env.VEAS_API_URL
       const flow = new OAuthDeviceFlow()
-      expect(flow['apiUrl']).toBe('https://veas.app')
+      expect(flow.apiUrl).toBe('https://veas.app')
       if (originalEnv) process.env.VEAS_API_URL = originalEnv
     })
   })
@@ -236,7 +236,7 @@ describe('OAuthDeviceFlow', () => {
         }),
       } as Response)
 
-      const pollPromise = deviceFlow.pollForToken('test-device-code', 5).catch((e) => {
+      const pollPromise = deviceFlow.pollForToken('test-device-code', 5).catch(e => {
         // Catch the error to prevent unhandled rejection
         throw e
       })
@@ -316,7 +316,7 @@ describe('OAuthDeviceFlow', () => {
       // Check that at least one call contains the expected text (accounting for color codes)
       const infoCalls = vi.mocked(logger.info).mock.calls
       const hasAuthMessage = infoCalls.some(
-        (call) => call[0] && call[0].toString().includes('Please visit this URL to authenticate:'),
+        call => call[0] && call[0].toString().includes('Please visit this URL to authenticate:'),
       )
       expect(hasAuthMessage).toBe(true)
 

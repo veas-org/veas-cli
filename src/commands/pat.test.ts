@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { createPAT, listPATs } from './pat.js'
-import { AuthManager } from '../auth/auth-manager.js'
 import * as prompts from '@clack/prompts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthManager } from '../auth/auth-manager.js'
+import { createPAT, listPATs } from './pat.js'
 
 // Mock dependencies
 vi.mock('../auth/auth-manager.js', () => ({
@@ -73,7 +73,7 @@ describe('PAT Commands', () => {
       })
 
       // Verify output includes the token
-      const output = consoleSpy.mock.calls.map((call) => call[0]).join('\n')
+      const output = consoleSpy.mock.calls.map(call => call[0]).join('\n')
       expect(output).toContain(mockToken)
       expect(output).toContain('export VEAS_PAT=')
       expect(output).toContain('claude mcp add veas')
@@ -185,7 +185,7 @@ describe('PAT Commands', () => {
         },
       })
 
-      const output = consoleSpy.mock.calls.map((call) => call[0]).join('\n')
+      const output = consoleSpy.mock.calls.map(call => call[0]).join('\n')
       expect(output).toContain('Production Token')
       expect(output).toContain('Dev Token')
       expect(output).toContain('Last used:')
@@ -205,7 +205,7 @@ describe('PAT Commands', () => {
 
       await listPATs()
 
-      const output = consoleSpy.mock.calls.map((call) => call[0]).join('\n')
+      const output = consoleSpy.mock.calls.map(call => call[0]).join('\n')
       expect(output).toContain('Run "veas pat create" to create one')
 
       consoleSpy.mockRestore()

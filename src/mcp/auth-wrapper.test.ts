@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getBestAuthToken, prepareMCPHeaders, type AuthToken } from './auth-wrapper.js'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { type AuthToken, getBestAuthToken, prepareMCPHeaders } from './auth-wrapper.js'
 
 // Mock the AuthManager
 const mockGetToken = vi.fn()
@@ -12,9 +12,6 @@ vi.mock('../auth/auth-manager.js', () => ({
     })),
   },
 }))
-
-// Import AuthManager after mocking
-import { AuthManager } from '../auth/auth-manager.js'
 
 describe('auth-wrapper', () => {
   beforeEach(() => {

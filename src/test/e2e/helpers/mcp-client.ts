@@ -3,8 +3,8 @@
  * Provides utilities for making MCP protocol requests
  */
 
-import { E2E_CONFIG } from '../setup.js'
 import { logger } from '../../../utils/logger.js'
+import { E2E_CONFIG } from '../setup.js'
 
 export interface MCPRequest {
   jsonrpc: '2.0'
@@ -72,7 +72,7 @@ export class MCPTestClient {
     const headers = { ...this.defaultHeaders }
     if (this.token) {
       headers['X-MCP-Token'] = this.token
-      headers['Authorization'] = `Bearer ${this.token}`
+      headers.Authorization = `Bearer ${this.token}`
     }
 
     const url = `${this.apiUrl}/api/mcp/${this.transport}`
@@ -185,7 +185,7 @@ export class MCPTestClient {
    */
   private parseSSEResponse(text: string): MCPResponse {
     const lines = text.split('\n')
-    const dataLine = lines.find((line) => line.startsWith('data: '))
+    const dataLine = lines.find(line => line.startsWith('data: '))
 
     if (!dataLine) {
       throw new Error('Invalid SSE response: no data line found')
@@ -212,7 +212,7 @@ export class MCPTestClient {
 
     if (this.token && !headers?.['X-MCP-Token']) {
       requestHeaders['X-MCP-Token'] = this.token
-      requestHeaders['Authorization'] = `Bearer ${this.token}`
+      requestHeaders.Authorization = `Bearer ${this.token}`
     }
 
     return fetch(url, {

@@ -1,7 +1,6 @@
-import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { AuthManager } from '../../auth/auth-manager.js'
-import { logger } from '../../utils/logger.js'
-import { LogLevel } from '../../utils/logger.js'
+import { LogLevel, logger } from '../../utils/logger.js'
 
 // Test configuration
 export const E2E_CONFIG = {
@@ -84,7 +83,7 @@ export async function waitForServer(url: string = E2E_CONFIG.apiUrl, maxAttempts
     }
 
     if (i < maxAttempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 1000))
     }
   }
 

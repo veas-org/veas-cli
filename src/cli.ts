@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
-import { login, logout, status, refresh } from './commands/auth.js'
-import { serve } from './commands/serve.js'
-import { createPAT, listPATs, revokePAT } from './commands/pat.js'
-import { test as testMCP, listProjects, configureForClaude } from './commands/mcp.js'
-import { docsSync as syncDocs } from './commands/docs-sync-mcp.js'
 import * as dotenv from 'dotenv'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import fs from 'fs'
+import { login, logout, refresh, status } from './commands/auth.js'
+import { docsSync as syncDocs } from './commands/docs-sync-mcp.js'
+import { configureForClaude, listProjects, test as testMCP } from './commands/mcp.js'
+import { createPAT, listPATs, revokePAT } from './commands/pat.js'
+import { serve } from './commands/serve.js'
 
 // Load environment variables (prioritize .env.local over .env)
 dotenv.config({ path: '.env.local' })

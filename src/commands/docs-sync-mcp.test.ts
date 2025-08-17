@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { docsSync } from './docs-sync-mcp'
+import path from 'node:path'
+import * as prompts from '@clack/prompts'
+import fg from 'fast-glob'
+import fs from 'fs-extra'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthManager } from '../auth/auth-manager'
 import { VeasConfigParser } from '../config/veas-config-parser'
-import * as prompts from '@clack/prompts'
 import { logger } from '../utils/logger'
-import fs from 'fs-extra'
-import path from 'path'
-import fg from 'fast-glob'
+import { docsSync } from './docs-sync-mcp'
 
 vi.mock('../auth/auth-manager')
 vi.mock('@clack/prompts')
@@ -30,7 +30,7 @@ vi.mock('../mcp/mcp-client', () => ({
 }))
 
 // Mock process.exit to not actually exit
-const mockExit = vi.spyOn(process, 'exit').mockImplementation((code) => {
+const mockExit = vi.spyOn(process, 'exit').mockImplementation(code => {
   throw new Error(`process.exit(${code})`)
 })
 
@@ -172,7 +172,7 @@ describe('DocsSync Command', () => {
 
     beforeEach(() => {
       vi.mocked(fg).mockResolvedValue(mockFiles)
-      vi.mocked(fs.readFile).mockImplementation((filePath) => {
+      vi.mocked(fs.readFile).mockImplementation(filePath => {
         const name = path.basename(filePath as string)
         return Promise.resolve(`# ${name}\n\nContent for ${name}`)
       })
@@ -186,7 +186,7 @@ describe('DocsSync Command', () => {
     it('should sync documents successfully in dry run mode', async () => {
       // Reset and set up specific mock implementation
       mockMCPClient.callToolSafe.mockReset()
-      mockMCPClient.callToolSafe.mockImplementation((toolName) => {
+      mockMCPClient.callToolSafe.mockImplementation(toolName => {
         if (toolName === 'mcp-articles_list_publications') {
           return Promise.resolve({
             success: true,

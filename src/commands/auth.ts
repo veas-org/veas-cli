@@ -1,4 +1,4 @@
-import { text, password, spinner, select } from '@clack/prompts'
+import { password, select, spinner, text } from '@clack/prompts'
 import pc from 'picocolors'
 import { AuthManager } from '../auth/auth-manager.js'
 import { OAuthDeviceFlow } from '../auth/device-flow.js'
@@ -88,7 +88,7 @@ async function loginWithWeb(authManager: AuthManager) {
 async function loginWithToken(authManager: AuthManager): Promise<void> {
   const token = await text({
     message: 'Personal Access Token:',
-    validate: (value) => {
+    validate: value => {
       if (!value || value.length < 10) {
         return 'Please enter a valid token'
       }
@@ -132,7 +132,7 @@ async function loginWithPassword(authManager: AuthManager): Promise<void> {
     // Interactive mode
     const emailInput = await text({
       message: 'Email:',
-      validate: (value) => {
+      validate: value => {
         if (!value || !value.includes('@')) {
           return 'Please enter a valid email'
         }
@@ -148,7 +148,7 @@ async function loginWithPassword(authManager: AuthManager): Promise<void> {
 
     const passInput = await password({
       message: 'Password:',
-      validate: (value) => {
+      validate: value => {
         if (!value || value.length < 6) {
           return 'Password must be at least 6 characters'
         }

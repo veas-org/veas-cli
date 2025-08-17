@@ -1,5 +1,5 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
-import { prepareMCPHeaders, type AuthToken, getBestAuthToken } from './auth-wrapper.js'
+import { type AuthToken, getBestAuthToken, prepareMCPHeaders } from './auth-wrapper.js'
 
 export async function getMCPTools(tokenOrAuthToken?: string | AuthToken): Promise<Tool[]> {
   const apiUrl = process.env.VEAS_API_URL || 'https://veas.app'
@@ -65,7 +65,7 @@ export async function getMCPTools(tokenOrAuthToken?: string | AuthToken): Promis
     if (contentType.includes('text/event-stream') || text.startsWith('event:')) {
       // Parse SSE format
       const lines = text.split('\n')
-      const dataLine = lines.find((line) => line.startsWith('data: '))
+      const dataLine = lines.find(line => line.startsWith('data: '))
       if (dataLine) {
         const jsonData = dataLine.substring(6)
         result = JSON.parse(jsonData)

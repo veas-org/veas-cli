@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises'
-import * as fsSync from 'fs'
-import * as path from 'path'
+import * as fsSync from 'node:fs'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 import * as yaml from 'js-yaml'
 import { logger } from '../utils/logger.js'
 
@@ -278,7 +278,7 @@ export class VeasConfigParser {
     }
 
     const configDir = path.dirname(this.configPath)
-    return (this.config.sync.roots || []).map((root) => ({
+    return (this.config.sync.roots || []).map(root => ({
       root,
       absolutePath: path.resolve(configDir, root.path),
     }))

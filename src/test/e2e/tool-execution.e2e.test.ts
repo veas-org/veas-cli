@@ -54,7 +54,7 @@ describe.skip('Tool Execution E2E Tests', () => {
       expect(tools.length).toBeGreaterThan(0)
 
       // Each tool should have required properties
-      tools.forEach((tool) => {
+      tools.forEach(tool => {
         expect(tool.name).toBeDefined()
         expect(tool.description).toBeDefined()
         expect(tool.inputSchema).toBeDefined()
@@ -80,7 +80,7 @@ describe.skip('Tool Execution E2E Tests', () => {
       }
 
       const hasKnowledgeTools = availableTools.some(
-        (tool) => tool.name.includes('knowledge') || tool.name.includes('article'),
+        tool => tool.name.includes('knowledge') || tool.name.includes('article'),
       )
 
       expect(hasKnowledgeTools).toBe(true)
@@ -128,7 +128,7 @@ describe.skip('Tool Execution E2E Tests', () => {
       }
 
       // Check if this tool exists
-      const hasUserInfoTool = availableTools.some((t) => t.name.includes('get_user_info'))
+      const hasUserInfoTool = availableTools.some(t => t.name.includes('get_user_info'))
       if (!hasUserInfoTool) {
         console.log('User info tool not available')
         return
@@ -333,7 +333,7 @@ describe.skip('Tool Execution E2E Tests', () => {
       const results = await Promise.allSettled(promises)
 
       // Most should succeed
-      const successful = results.filter((r) => r.status === 'fulfilled')
+      const successful = results.filter(r => r.status === 'fulfilled')
       expect(successful.length).toBeGreaterThanOrEqual(2)
     })
 

@@ -1,10 +1,9 @@
+import fs from 'node:fs/promises'
+import path, { dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import pc from 'picocolors'
-import { logger } from '../utils/logger.js'
 import { AuthManager } from '../auth/auth-manager.js'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
-import fs from 'fs/promises'
+import { logger } from '../utils/logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -142,7 +141,7 @@ export async function testMCPConnection(): Promise<void> {
     if (text.startsWith('event:')) {
       // Extract JSON from event stream
       const lines = text.split('\n')
-      const dataLine = lines.find((line) => line.startsWith('data: '))
+      const dataLine = lines.find(line => line.startsWith('data: '))
       if (dataLine) {
         result = JSON.parse(dataLine.substring(6))
       }
@@ -330,7 +329,7 @@ export async function createIssue(data?: { projectId?: string; title?: string; d
     if (!projectId) {
       const input = await text({
         message: 'Project ID:',
-        validate: (value) => {
+        validate: value => {
           if (!value) return 'Project ID is required'
           return undefined
         },
@@ -345,7 +344,7 @@ export async function createIssue(data?: { projectId?: string; title?: string; d
     if (!title) {
       const input = await text({
         message: 'Issue title:',
-        validate: (value) => {
+        validate: value => {
           if (!value) return 'Title is required'
           return undefined
         },

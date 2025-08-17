@@ -1,15 +1,15 @@
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
-import { CacheManager } from '../cache/cache-manager.js'
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import pc from 'picocolors'
 import { AuthManager } from '../auth/auth-manager.js'
+import { CacheManager } from '../cache/cache-manager.js'
+import { logger } from '../utils/logger.js'
+import { getBestAuthToken } from './auth-wrapper.js'
 // import { getMCPTools } from './tools-registry.js';
 // import { getMCPToolsViaSSE, executeMCPToolViaSSE } from './sse-client.js';
-import { standaloneTools, executeStandaloneTool } from './standalone-tools.js'
-import { getBestAuthToken } from './auth-wrapper.js'
-import pc from 'picocolors'
-import { logger } from '../utils/logger.js'
+import { executeStandaloneTool, standaloneTools } from './standalone-tools.js'
 
 export interface MCPServerOptions {
   port?: number
@@ -132,7 +132,7 @@ export class MCPServer {
       tools: Array.from(this.tools.values()),
     }))
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params
 
       const tool = this.tools.get(name)

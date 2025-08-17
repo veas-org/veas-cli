@@ -1,6 +1,6 @@
-import { vi } from 'vitest'
 import type { User } from '@supabase/supabase-js'
 import { vol } from 'memfs'
+import { vi } from 'vitest'
 
 // Mock Supabase client
 export const mockSupabaseClient = {

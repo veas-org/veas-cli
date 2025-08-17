@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { VeasConfigParser } from './veas-config-parser'
-import fs from 'fs/promises'
-import * as fsSync from 'fs'
-import path from 'path'
+import * as fsSync from 'node:fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import yaml from 'js-yaml'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { VeasConfigParser } from './veas-config-parser'
 
 vi.mock('fs/promises')
 vi.mock('fs')
@@ -36,11 +36,11 @@ describe('VeasConfigParser', () => {
   describe('constructor', () => {
     it('should use provided config path', () => {
       const parser = new VeasConfigParser('/custom/path/.veas-config.yaml')
-      expect(parser['configPath']).toBe('/custom/path/.veas-config.yaml')
+      expect(parser.configPath).toBe('/custom/path/.veas-config.yaml')
     })
 
     it('should find config file if not provided', () => {
-      vi.mocked(fsSync.statSync).mockImplementation((path) => {
+      vi.mocked(fsSync.statSync).mockImplementation(path => {
         if (path === '/project/.veas-config.yaml') {
           return { isFile: () => true } as any
         }
@@ -48,12 +48,12 @@ describe('VeasConfigParser', () => {
       })
 
       const parser = new VeasConfigParser()
-      expect(parser['configPath']).toBe('/project/.veas-config.yaml')
+      expect(parser.configPath).toBe('/project/.veas-config.yaml')
     })
 
     it('should search up directory tree for config', () => {
       let callCount = 0
-      vi.mocked(fsSync.statSync).mockImplementation((path) => {
+      vi.mocked(fsSync.statSync).mockImplementation(path => {
         callCount++
         if (callCount === 3 && path === '/parent/.veas-config.yaml') {
           return { isFile: () => true } as any

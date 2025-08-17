@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { CacheManager } from './cache-manager'
 import NodeCache from 'node-cache'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CacheManager } from './cache-manager'
 
 vi.mock('node-cache')
 

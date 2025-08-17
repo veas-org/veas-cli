@@ -1,9 +1,9 @@
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Tool } from '@modelcontextprotocol/sdk/types.js'
-import { AuthManager } from '../auth/auth-manager.js'
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import pc from 'picocolors'
+import { AuthManager } from '../auth/auth-manager.js'
 import { logger } from '../utils/logger.js'
 // import type { MCPResult } from '../types/mcp.js';
 
@@ -115,7 +115,7 @@ export class DirectMCPServer {
       tools: Array.from(this.tools.values()),
     }))
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params
 
       const tool = this.tools.get(name)

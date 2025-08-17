@@ -152,7 +152,7 @@ export function isTestData(item: any): boolean {
   const testPatterns = [/e2e[-_]test/i, /test[-_]\d+/i, /E2E Test/i]
 
   const checkString = (str: string) => {
-    return testPrefixes.some((prefix) => str.includes(prefix)) || testPatterns.some((pattern) => pattern.test(str))
+    return testPrefixes.some(prefix => str.includes(prefix)) || testPatterns.some(pattern => pattern.test(str))
   }
 
   return (
