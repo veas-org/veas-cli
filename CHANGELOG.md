@@ -1,4 +1,11 @@
-## [1.0.10] - 2025-08-15
+## [1.0.11] - 2025-08-17
+
+### Changes
+
+- fix: buime (f5270ac)
+- fix: lint (19d2737)
+- fix: lint (be7bebb)
+
 
 ### Changes
 
