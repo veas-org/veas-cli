@@ -1,20 +1,14 @@
 /**
  * Task Executor
- * 
+ *
  * Executes tasks based on their configuration and workflow
  */
 
-import type { 
-  Task, 
-  TaskExecution, 
-  WorkflowStep, 
-  ExecutionLog, 
-  ToolCall 
-} from './types.js'
-import { RealtimeService } from './realtime-service.js'
+import { createClient } from '@supabase/supabase-js'
 import { MCPClient } from '../mcp/mcp-client.js'
 import { logger } from '../utils/logger.js'
-import { createClient } from '@supabase/supabase-js'
+import { RealtimeService } from './realtime-service.js'
+import type { Task, TaskExecution, ToolCall, WorkflowStep } from './types.js'
 
 export class TaskExecutor {
   private realtimeService: RealtimeService
@@ -28,7 +22,7 @@ export class TaskExecutor {
     mcpClient: MCPClient,
     supabaseUrl: string,
     supabaseAnonKey: string,
-    maxConcurrentTasks = 1
+    maxConcurrentTasks = 1,
   ) {
     this.realtimeService = realtimeService
     this.mcpClient = mcpClient
@@ -37,8 +31,8 @@ export class TaskExecutor {
     this.supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
-        autoRefreshToken: false
-      }
+        autoRefreshToken: false,
+      },
     })
   }
 
@@ -64,16 +58,13 @@ export class TaskExecutor {
     try {
       // Update status to running
       await this.realtimeService.updateExecutionStatus(execution.id, 'running', {
-        started_at: new Date().toISOString()
-      })
+        startedAt: new Date().toISOString(),
+      } as any)
 
       // Log execution start
-      await this.realtimeService.addExecutionLog(
-        execution.id,
-        'info',
-        'Task execution started',
-        { taskId: execution.taskId }
-      )
+      await this.realtimeService.addExecutionLog(execution.id, 'info', 'Task execution started', {
+        taskId: execution.taskId,
+      })
 
       // Fetch the full task details
       const task = await this.fetchTask(execution.taskId)
@@ -86,18 +77,15 @@ export class TaskExecutor {
 
       // Update execution with success
       await this.realtimeService.updateExecutionStatus(execution.id, 'completed', {
-        output_result: result,
-        completed_at: new Date().toISOString(),
-        duration_ms: Date.now() - new Date(execution.startedAt || execution.queuedAt).getTime()
-      })
+        outputResult: result,
+        completedAt: new Date().toISOString(),
+        durationMs: Date.now() - new Date(execution.startedAt || execution.queuedAt).getTime(),
+      } as any)
 
       // Log execution completion
-      await this.realtimeService.addExecutionLog(
-        execution.id,
-        'info',
-        'Task execution completed successfully',
-        { result }
-      )
+      await this.realtimeService.addExecutionLog(execution.id, 'info', 'Task execution completed successfully', {
+        result,
+      })
 
       logger.info(`Task ${execution.id} completed successfully`)
     } catch (error: any) {
@@ -105,22 +93,19 @@ export class TaskExecutor {
 
       // Update execution with failure
       await this.realtimeService.updateExecutionStatus(execution.id, 'failed', {
-        error_message: error.message,
-        error_details: {
+        errorMessage: error.message,
+        errorDetails: {
           stack: error.stack,
-          code: error.code
+          code: error.code,
         },
-        completed_at: new Date().toISOString(),
-        duration_ms: Date.now() - new Date(execution.startedAt || execution.queuedAt).getTime()
-      })
+        completedAt: new Date().toISOString(),
+        durationMs: Date.now() - new Date(execution.startedAt || execution.queuedAt).getTime(),
+      } as any)
 
       // Log execution failure
-      await this.realtimeService.addExecutionLog(
-        execution.id,
-        'error',
-        'Task execution failed',
-        { error: error.message }
-      )
+      await this.realtimeService.addExecutionLog(execution.id, 'error', 'Task execution failed', {
+        error: error.message,
+      })
     } finally {
       this.activeExecutions.delete(execution.id)
     }
@@ -131,11 +116,7 @@ export class TaskExecutor {
    */
   private async fetchTask(taskId: string): Promise<Task | null> {
     try {
-      const { data, error } = await this.supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', taskId)
-        .single()
+      const { data, error } = await this.supabase.from('tasks').select('*').eq('id', taskId).single()
 
       if (error) {
         logger.error(`Failed to fetch task ${taskId}:`, error)
@@ -152,15 +133,12 @@ export class TaskExecutor {
   /**
    * Execute task workflow
    */
-  private async executeTaskWorkflow(
-    execution: TaskExecution,
-    task: Task
-  ): Promise<any> {
+  private async executeTaskWorkflow(execution: TaskExecution, task: Task): Promise<any> {
     const workflow = task.workflow || []
     const context: Record<string, any> = {
       ...execution.inputParams,
       executionId: execution.id,
-      taskId: task.id
+      taskId: task.id,
     }
 
     let result: any = null
@@ -168,47 +146,36 @@ export class TaskExecutor {
     for (const step of workflow) {
       try {
         logger.debug(`Executing workflow step: ${step.name}`)
-        
+
         // Log step start
-        await this.realtimeService.addExecutionLog(
-          execution.id,
-          'debug',
-          `Starting workflow step: ${step.name}`,
-          { step }
-        )
+        await this.realtimeService.addExecutionLog(execution.id, 'debug', `Starting workflow step: ${step.name}`, {
+          step,
+        })
 
         result = await this.executeWorkflowStep(execution, step, context)
-        
+
         // Update context with step result
         context[step.id] = result
-        
+
         // Log step completion
-        await this.realtimeService.addExecutionLog(
-          execution.id,
-          'debug',
-          `Completed workflow step: ${step.name}`,
-          { result }
-        )
+        await this.realtimeService.addExecutionLog(execution.id, 'debug', `Completed workflow step: ${step.name}`, {
+          result,
+        })
 
         // Handle step success
         if (step.onSuccess) {
           // Jump to specified step
           const nextStepIndex = workflow.findIndex(s => s.id === step.onSuccess)
           if (nextStepIndex >= 0) {
-            // Skip to the specified step
-            continue
           }
         }
       } catch (error: any) {
         logger.error(`Workflow step ${step.name} failed:`, error)
-        
+
         // Log step failure
-        await this.realtimeService.addExecutionLog(
-          execution.id,
-          'error',
-          `Workflow step failed: ${step.name}`,
-          { error: error.message }
-        )
+        await this.realtimeService.addExecutionLog(execution.id, 'error', `Workflow step failed: ${step.name}`, {
+          error: error.message,
+        })
 
         // Handle step failure
         if (step.retryOnFailure) {
@@ -230,7 +197,6 @@ export class TaskExecutor {
         if (step.onFailure) {
           const nextStepIndex = workflow.findIndex(s => s.id === step.onFailure)
           if (nextStepIndex >= 0) {
-            continue
           }
         }
       }
@@ -245,26 +211,24 @@ export class TaskExecutor {
   private async executeWorkflowStep(
     execution: TaskExecution,
     step: WorkflowStep,
-    context: Record<string, any>
+    context: Record<string, any>,
   ): Promise<any> {
-    const startTime = Date.now()
-
     switch (step.type) {
       case 'tool':
         return await this.executeToolStep(execution, step, context)
-      
+
       case 'condition':
         return await this.executeConditionStep(step, context)
-      
+
       case 'loop':
         return await this.executeLoopStep(execution, step, context)
-      
+
       case 'parallel':
         return await this.executeParallelStep(execution, step, context)
-      
+
       case 'transform':
         return await this.executeTransformStep(step, context)
-      
+
       default:
         throw new Error(`Unknown step type: ${step.type}`)
     }
@@ -276,26 +240,26 @@ export class TaskExecutor {
   private async executeToolStep(
     execution: TaskExecution,
     step: WorkflowStep,
-    context: Record<string, any>
+    context: Record<string, any>,
   ): Promise<any> {
     if (!step.tool) {
       throw new Error('Tool step missing tool name')
     }
 
     const params = this.resolveParams(step.params || {}, context)
-    
+
     // Record tool call
     const toolCall: ToolCall = {
       id: `${execution.id}-${step.id}-${Date.now()}`,
       tool: step.tool,
       params,
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
     }
 
     try {
       // Execute the MCP tool
       const result = await this.mcpClient.callTool(step.tool, params)
-      
+
       // Update tool call with result
       toolCall.completedAt = new Date().toISOString()
       toolCall.durationMs = Date.now() - new Date(toolCall.startedAt).getTime()
@@ -321,10 +285,7 @@ export class TaskExecutor {
   /**
    * Execute a condition step
    */
-  private async executeConditionStep(
-    step: WorkflowStep,
-    context: Record<string, any>
-  ): Promise<boolean> {
+  private async executeConditionStep(step: WorkflowStep, context: Record<string, any>): Promise<boolean> {
     if (!step.condition) {
       throw new Error('Condition step missing condition')
     }
@@ -377,9 +338,9 @@ export class TaskExecutor {
    * Execute a loop step
    */
   private async executeLoopStep(
-    execution: TaskExecution,
-    step: WorkflowStep,
-    context: Record<string, any>
+    _execution: TaskExecution,
+    _step: WorkflowStep,
+    _context: Record<string, any>,
   ): Promise<any[]> {
     // TODO: Implement loop execution
     logger.warn('Loop steps not yet implemented')
@@ -390,9 +351,9 @@ export class TaskExecutor {
    * Execute a parallel step
    */
   private async executeParallelStep(
-    execution: TaskExecution,
-    step: WorkflowStep,
-    context: Record<string, any>
+    _execution: TaskExecution,
+    _step: WorkflowStep,
+    _context: Record<string, any>,
   ): Promise<any[]> {
     // TODO: Implement parallel execution
     logger.warn('Parallel steps not yet implemented')
@@ -402,12 +363,9 @@ export class TaskExecutor {
   /**
    * Execute a transform step
    */
-  private async executeTransformStep(
-    step: WorkflowStep,
-    context: Record<string, any>
-  ): Promise<any> {
+  private async executeTransformStep(step: WorkflowStep, context: Record<string, any>): Promise<any> {
     const params = this.resolveParams(step.params || {}, context)
-    
+
     // Simple JSON transformation
     // In production, use a proper transformation library
     return params
@@ -416,10 +374,7 @@ export class TaskExecutor {
   /**
    * Resolve parameters with context values
    */
-  private resolveParams(
-    params: Record<string, any>,
-    context: Record<string, any>
-  ): Record<string, any> {
+  private resolveParams(params: Record<string, any>, context: Record<string, any>): Record<string, any> {
     const resolved: Record<string, any> = {}
 
     for (const [key, value] of Object.entries(params)) {
@@ -493,9 +448,9 @@ export class TaskExecutor {
       // Update tool calls and count
       const { error: updateError } = await this.supabase
         .from('executions')
-        .update({ 
+        .update({
           tool_calls: toolCalls,
-          tool_calls_count: toolCalls.length
+          tool_calls_count: toolCalls.length,
         })
         .eq('id', executionId)
 

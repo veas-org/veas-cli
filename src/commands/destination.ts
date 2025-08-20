@@ -1,16 +1,15 @@
 /**
  * Destination Command
- * 
+ *
  * Manage agent destinations
  */
 
-import { config as loadEnv } from 'dotenv'
-import ora from 'ora'
-import chalk from 'chalk'
 import * as prompts from '@clack/prompts'
 import { createClient } from '@supabase/supabase-js'
+import chalk from 'chalk'
+import { config as loadEnv } from 'dotenv'
+import ora from 'ora'
 import { AuthManager } from '../auth/auth-manager.js'
-import { logger } from '../utils/logger.js'
 
 // Load environment variables
 loadEnv({ path: '.env.local' })
@@ -28,9 +27,9 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
   const spinner = ora('Fetching destinations...').start()
 
   try {
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -47,9 +46,9 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      }
+          Authorization: `Bearer ${session.token}`,
+        },
+      },
     })
 
     // Get user's organization
@@ -60,7 +59,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
         .select('organization_id')
         .eq('user_id', session.user.id)
         .single()
-      
+
       organizationId = member?.organization_id
     }
 
@@ -102,21 +101,20 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
       console.log(`  ID: ${chalk.gray(dest.id)}`)
       console.log(`  Hostname: ${dest.hostname}`)
       console.log(`  Max Tasks: ${dest.max_concurrent_tasks}`)
-      console.log(`  Last Heartbeat: ${dest.last_heartbeat_at 
-        ? new Date(dest.last_heartbeat_at).toLocaleString() 
-        : 'Never'}`)
+      console.log(
+        `  Last Heartbeat: ${dest.last_heartbeat_at ? new Date(dest.last_heartbeat_at).toLocaleString() : 'Never'}`,
+      )
       console.log(`  Total Executions: ${dest.total_executions || 0}`)
-      console.log(`  Success Rate: ${
-        dest.total_executions > 0 
-          ? Math.round((dest.successful_executions / dest.total_executions) * 100) 
-          : 0
-      }%`)
-      
+      console.log(
+        `  Success Rate: ${
+          dest.total_executions > 0 ? Math.round((dest.successful_executions / dest.total_executions) * 100) : 0
+        }%`,
+      )
+
       if (dest.tags?.length > 0) {
         console.log(`  Tags: ${dest.tags.join(', ')}`)
       }
     })
-
   } catch (error: any) {
     spinner.fail(`Failed to list destinations: ${error.message}`)
     process.exit(1)
@@ -126,13 +124,13 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
 /**
  * Register a new destination
  */
-export async function registerDestination(options: any): Promise<void> {
+export async function registerDestination(_options: any): Promise<void> {
   const spinner = ora('Registering destination...').start()
 
   try {
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -144,9 +142,10 @@ export async function registerDestination(options: any): Promise<void> {
     const name = await prompts.text({
       message: 'Destination name:',
       placeholder: 'my-agent-server',
-      validate: (value) => {
+      validate: value => {
         if (!value) return 'Name is required'
-      }
+        return undefined
+      },
     })
 
     if (prompts.isCancel(name)) {
@@ -157,7 +156,7 @@ export async function registerDestination(options: any): Promise<void> {
     const hostname = await prompts.text({
       message: 'Hostname:',
       placeholder: 'agent-server-1.example.com',
-      initialValue: require('os').hostname()
+      initialValue: require('node:os').hostname(),
     })
 
     if (prompts.isCancel(hostname)) {
@@ -169,10 +168,11 @@ export async function registerDestination(options: any): Promise<void> {
       message: 'Max concurrent tasks:',
       placeholder: '3',
       initialValue: '3',
-      validate: (value) => {
-        const num = parseInt(value)
-        if (isNaN(num) || num < 1) return 'Must be a positive number'
-      }
+      validate: value => {
+        const num = parseInt(value, 10)
+        if (Number.isNaN(num) || num < 1) return 'Must be a positive number'
+        return undefined
+      },
     })
 
     if (prompts.isCancel(maxTasks)) {
@@ -193,9 +193,9 @@ export async function registerDestination(options: any): Promise<void> {
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      }
+          Authorization: `Bearer ${session.token}`,
+        },
+      },
     })
 
     // Get user's organization
@@ -222,13 +222,13 @@ export async function registerDestination(options: any): Promise<void> {
         organization_id: member.organization_id,
         name,
         hostname,
-        max_concurrent_tasks: parseInt(maxTasks as string),
+        max_concurrent_tasks: parseInt(maxTasks as string, 10),
         api_key_hash: apiKeyHash,
         status: 'offline',
         is_active: true,
         capabilities: {},
         supported_tools: [],
-        allowed_task_types: ['workflow', 'single', 'batch']
+        allowed_task_types: ['workflow', 'single', 'batch'],
       })
       .select()
       .single()
@@ -247,7 +247,6 @@ export async function registerDestination(options: any): Promise<void> {
     console.log(chalk.bold(`  ${apiKey}`))
     console.log(chalk.gray('\nThis API key will not be shown again.'))
     console.log(chalk.gray('Use it when starting agents on this destination.'))
-
   } catch (error: any) {
     spinner.fail(`Failed to register destination: ${error.message}`)
     process.exit(1)
@@ -261,9 +260,9 @@ export async function deleteDestination(destinationId: string, options: any): Pr
   const spinner = ora('Checking destination...').start()
 
   try {
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -280,9 +279,9 @@ export async function deleteDestination(destinationId: string, options: any): Pr
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      }
+          Authorization: `Bearer ${session.token}`,
+        },
+      },
     })
 
     // Check destination
@@ -302,7 +301,7 @@ export async function deleteDestination(destinationId: string, options: any): Pr
 
     if (!options.force) {
       const confirm = await prompts.confirm({
-        message: `Delete destination "${destination.name}"?`
+        message: `Delete destination "${destination.name}"?`,
       })
 
       if (!confirm || prompts.isCancel(confirm)) {
@@ -325,7 +324,6 @@ export async function deleteDestination(destinationId: string, options: any): Pr
     }
 
     spinner.succeed(`Destination "${destination.name}" deleted successfully`)
-
   } catch (error: any) {
     spinner.fail(`Failed to delete destination: ${error.message}`)
     process.exit(1)
@@ -335,13 +333,13 @@ export async function deleteDestination(destinationId: string, options: any): Pr
 /**
  * Watch destination executions
  */
-export async function watchDestination(destinationId: string, options: any): Promise<void> {
+export async function watchDestination(destinationId: string, _options: any): Promise<void> {
   const spinner = ora('Connecting to destination...').start()
 
   try {
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -358,9 +356,9 @@ export async function watchDestination(destinationId: string, options: any): Pro
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      }
+          Authorization: `Bearer ${session.token}`,
+        },
+      },
     })
 
     // Get destination info
@@ -388,7 +386,7 @@ export async function watchDestination(destinationId: string, options: any): Pro
           event: '*',
           schema: 'agents',
           table: 'executions',
-          filter: `destination_id=eq.${destinationId}`
+          filter: `destination_id=eq.${destinationId}`,
         },
         (payload: any) => {
           const { eventType, new: newRecord, old: oldRecord } = payload
@@ -409,7 +407,7 @@ export async function watchDestination(destinationId: string, options: any): Pro
               console.log(`   Duration: ${formatDuration(record.duration_ms)}`)
             }
           }
-        }
+        },
       )
       .subscribe()
 
@@ -422,7 +420,6 @@ export async function watchDestination(destinationId: string, options: any): Pro
 
     // Keep the process alive
     await new Promise(() => {})
-
   } catch (error: any) {
     spinner.fail(`Failed to watch destination: ${error.message}`)
     process.exit(1)
@@ -432,16 +429,26 @@ export async function watchDestination(destinationId: string, options: any): Pro
 // Helper functions
 function getStatusColor(status: string) {
   switch (status) {
-    case 'online': return chalk.green
-    case 'offline': return chalk.gray
-    case 'busy': return chalk.yellow
-    case 'maintenance': return chalk.blue
-    case 'error': return chalk.red
-    case 'completed': return chalk.green
-    case 'failed': return chalk.red
-    case 'running': return chalk.cyan
-    case 'pending': return chalk.yellow
-    default: return chalk.white
+    case 'online':
+      return chalk.green
+    case 'offline':
+      return chalk.gray
+    case 'busy':
+      return chalk.yellow
+    case 'maintenance':
+      return chalk.blue
+    case 'error':
+      return chalk.red
+    case 'completed':
+      return chalk.green
+    case 'failed':
+      return chalk.red
+    case 'running':
+      return chalk.cyan
+    case 'pending':
+      return chalk.yellow
+    default:
+      return chalk.white
   }
 }
 
@@ -455,7 +462,7 @@ function generateApiKey(): string {
 }
 
 async function hashApiKey(apiKey: string): Promise<string> {
-  const crypto = await import('crypto')
+  const crypto = await import('node:crypto')
   return crypto.createHash('sha256').update(apiKey).digest('hex')
 }
 

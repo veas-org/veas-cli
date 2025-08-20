@@ -1,14 +1,14 @@
 /**
  * Agent Registry
- * 
+ *
  * Manages agent registration and heartbeat with the platform
  */
 
-import { createClient } from '@supabase/supabase-js'
-import { hostname, platform, arch, cpus, totalmem, freemem } from 'node:os'
 import { createHash, randomBytes } from 'node:crypto'
-import type { AgentConfig, AgentDestination, HeartbeatData } from './types.js'
+import { arch, cpus, hostname, platform, totalmem } from 'node:os'
+import { createClient } from '@supabase/supabase-js'
 import { logger } from '../utils/logger.js'
+import type { AgentConfig, AgentDestination, HeartbeatData } from './types.js'
 
 export class AgentRegistry {
   private supabase: any
@@ -28,8 +28,8 @@ export class AgentRegistry {
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: {
         persistSession: false,
-        autoRefreshToken: false
-      }
+        autoRefreshToken: false,
+      },
     })
   }
 
@@ -42,9 +42,9 @@ export class AgentRegistry {
       platform(),
       arch(),
       cpus()[0]?.model || 'unknown',
-      process.env.USER || process.env.USERNAME || 'unknown'
+      process.env.USER || process.env.USERNAME || 'unknown',
     ].join(':')
-    
+
     return createHash('sha256').update(data).digest('hex').substring(0, 16)
   }
 
@@ -72,7 +72,7 @@ export class AgentRegistry {
       cpus: cpus().length,
       totalMemoryMb: Math.floor(totalmem() / 1024 / 1024),
       nodeVersion: process.version,
-      cliVersion: '1.0.10' // TODO: Get from package.json
+      cliVersion: '1.0.10', // TODO: Get from package.json
     }
   }
 
@@ -91,7 +91,7 @@ export class AgentRegistry {
       'create_article',
       'update_article',
       'list_articles',
-      'get_article'
+      'get_article',
     ]
   }
 
@@ -119,7 +119,7 @@ export class AgentRegistry {
 
       if (existing) {
         // Update existing agent
-        const { data, error } = await this.supabase
+        const { error } = await this.supabase
           .from('agent_destinations')
           .update({
             hostname: hostname(),
@@ -132,7 +132,7 @@ export class AgentRegistry {
             last_heartbeat_at: new Date().toISOString(),
             max_concurrent_tasks: this.config.maxConcurrentTasks || 1,
             is_active: true,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id)
           .select()
@@ -162,7 +162,7 @@ export class AgentRegistry {
             allowed_task_types: ['workflow', 'tool', 'transform'],
             metadata: this.config.capabilities || {},
             tags: [],
-            is_active: true
+            is_active: true,
           })
           .select()
           .single()
@@ -173,7 +173,7 @@ export class AgentRegistry {
 
         this.destinationId = data.id
         logger.info(`Agent registered: ${data.id}`)
-        
+
         if (!this.config.apiKey) {
           logger.info(`Generated API key: ${apiKey}`)
           logger.info('Save this API key securely. It will not be shown again.')
@@ -181,7 +181,7 @@ export class AgentRegistry {
       }
 
       this.isRegistered = true
-      
+
       // Start heartbeat
       this.startHeartbeat()
 
@@ -208,13 +208,13 @@ export class AgentRegistry {
         .from('agent_destinations')
         .update({
           status: 'offline',
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', this.destinationId)
 
       this.stopHeartbeat()
       this.isRegistered = false
-      
+
       logger.info('Agent unregistered')
     } catch (error) {
       logger.error('Failed to unregister agent:', error)
@@ -229,7 +229,7 @@ export class AgentRegistry {
 
     this.heartbeatInterval = setInterval(async () => {
       await this.sendHeartbeat()
-    }, intervalMs)
+    }, intervalMs) as unknown as NodeJS.Timeout
 
     // Send initial heartbeat
     this.sendHeartbeat()
@@ -253,8 +253,7 @@ export class AgentRegistry {
 
     try {
       const memUsage = process.memoryUsage()
-      const cpuUsage = process.cpuUsage()
-      
+
       const heartbeat: HeartbeatData = {
         destinationId: this.destinationId,
         cpuUsagePercent: 0, // TODO: Calculate actual CPU usage
@@ -262,21 +261,19 @@ export class AgentRegistry {
         diskUsagePercent: 0, // TODO: Calculate disk usage
         activeTasks: 0, // TODO: Get from task executor
         queuedTasks: 0, // TODO: Get from task executor
-        status: 'online'
+        status: 'online',
       }
 
       // Insert heartbeat record
-      const { error: heartbeatError } = await this.supabase
-        .from('destination_heartbeats')
-        .insert({
-          destination_id: this.destinationId,
-          cpu_usage_percent: heartbeat.cpuUsagePercent,
-          memory_usage_mb: heartbeat.memoryUsageMb,
-          disk_usage_percent: heartbeat.diskUsagePercent,
-          active_tasks: heartbeat.activeTasks,
-          queued_tasks: heartbeat.queuedTasks,
-          status: heartbeat.status
-        })
+      const { error: heartbeatError } = await this.supabase.from('destination_heartbeats').insert({
+        destination_id: this.destinationId,
+        cpu_usage_percent: heartbeat.cpuUsagePercent,
+        memory_usage_mb: heartbeat.memoryUsageMb,
+        disk_usage_percent: heartbeat.diskUsagePercent,
+        active_tasks: heartbeat.activeTasks,
+        queued_tasks: heartbeat.queuedTasks,
+        status: heartbeat.status,
+      })
 
       if (heartbeatError) {
         logger.error('Failed to send heartbeat:', heartbeatError)
@@ -289,7 +286,7 @@ export class AgentRegistry {
         .from('agent_destinations')
         .update({
           last_heartbeat_at: new Date().toISOString(),
-          status: 'online'
+          status: 'online',
         })
         .eq('id', this.destinationId)
 
@@ -310,21 +307,18 @@ export class AgentRegistry {
     try {
       const updates: any = {
         status,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       }
 
       if (errorMessage) {
         updates.metadata = {
           ...this.config.capabilities,
           lastError: errorMessage,
-          lastErrorAt: new Date().toISOString()
+          lastErrorAt: new Date().toISOString(),
         }
       }
 
-      const { error } = await this.supabase
-        .from('agent_destinations')
-        .update(updates)
-        .eq('id', this.destinationId)
+      const { error } = await this.supabase.from('agent_destinations').update(updates).eq('id', this.destinationId)
 
       if (error) {
         logger.error('Failed to update agent status:', error)

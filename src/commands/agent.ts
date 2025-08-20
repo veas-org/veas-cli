@@ -1,20 +1,19 @@
 /**
  * Agent Command
- * 
+ *
  * Run the CLI as an agent that can execute tasks
  */
 
+import { createClient } from '@supabase/supabase-js'
+import chalk from 'chalk'
 import { config as loadEnv } from 'dotenv'
 import ora from 'ora'
-import chalk from 'chalk'
-import { createClient } from '@supabase/supabase-js'
-import { AuthManager } from '../auth/auth-manager.js'
 import { AgentRegistry } from '../agent/agent-registry.js'
 import { RealtimeService } from '../agent/realtime-service.js'
 import { TaskExecutor } from '../agent/task-executor.js'
-import { MCPClient } from '../mcp/mcp-client.js'
 import type { AgentConfig, TaskExecution } from '../agent/types.js'
-import { logger } from '../utils/logger.js'
+import { AuthManager } from '../auth/auth-manager.js'
+import { MCPClient } from '../mcp/mcp-client.js'
 
 // Load environment variables
 loadEnv({ path: '.env.local' })
@@ -38,9 +37,9 @@ export async function startAgent(options: AgentOptions): Promise<void> {
 
   try {
     // Check authentication
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -51,7 +50,9 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      spinner.fail('Supabase configuration not found. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.')
+      spinner.fail(
+        'Supabase configuration not found. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.',
+      )
       process.exit(1)
     }
 
@@ -60,9 +61,11 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     if (!organizationId) {
       // Try to get from environment or session
       organizationId = process.env.VEAS_ORGANIZATION_ID || session.user?.user_metadata?.organization_id
-      
+
       if (!organizationId) {
-        spinner.fail('Organization ID is required. Please provide --organization-id or set VEAS_ORGANIZATION_ID environment variable.')
+        spinner.fail(
+          'Organization ID is required. Please provide --organization-id or set VEAS_ORGANIZATION_ID environment variable.',
+        )
         process.exit(1)
       }
     }
@@ -91,7 +94,7 @@ export async function startAgent(options: AgentOptions): Promise<void> {
         heartbeatIntervalMs: parseInt(options.heartbeatInterval || '30000', 10),
         supabaseUrl,
         supabaseAnonKey,
-        apiKey: process.env.VEAS_AGENT_API_KEY
+        apiKey: process.env.VEAS_AGENT_API_KEY,
       }
 
       spinner.text = 'Registering destination with platform...'
@@ -102,14 +105,14 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     } else {
       // Use existing destination
       spinner.text = 'Using existing destination...'
-      
+
       // Verify destination exists and belongs to organization
       const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         global: {
           headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
-        }
+            Authorization: `Bearer ${session.token}`,
+          },
+        },
       })
 
       const { data: destination, error } = await supabase
@@ -138,10 +141,7 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     if (options.name) console.log(chalk.green(`Agent name: ${options.name}`))
 
     // Create MCP client
-    const mcpClient = new MCPClient({
-      apiUrl: process.env.VEAS_API_URL || 'http://localhost:3000',
-      token: session.access_token
-    })
+    const mcpClient = new MCPClient(process.env.VEAS_API_URL || 'http://localhost:3000')
 
     // Create config for realtime service
     const realtimeConfig: AgentConfig = {
@@ -151,7 +151,7 @@ export async function startAgent(options: AgentOptions): Promise<void> {
       maxConcurrentTasks: parseInt(options.maxConcurrentTasks || '1', 10),
       heartbeatIntervalMs: parseInt(options.heartbeatInterval || '30000', 10),
       supabaseUrl,
-      supabaseAnonKey
+      supabaseAnonKey,
     }
 
     // Create task executor
@@ -160,24 +160,21 @@ export async function startAgent(options: AgentOptions): Promise<void> {
       mcpClient,
       supabaseUrl,
       supabaseAnonKey,
-      realtimeConfig.maxConcurrentTasks
+      realtimeConfig.maxConcurrentTasks,
     )
 
     // Create realtime service
-    const realtimeService = new RealtimeService(
-      realtimeConfig,
-      async (execution: TaskExecution) => {
-        console.log(chalk.blue(`\n📋 New task assigned: ${execution.id}`))
-        console.log(chalk.gray(`Task ID: ${execution.taskId}`))
-        console.log(chalk.gray(`Trigger: ${execution.trigger}`))
-        
-        // Execute the task
-        await taskExecutor.executeTask(execution)
-      }
-    )
+    const realtimeService = new RealtimeService(realtimeConfig, async (execution: TaskExecution) => {
+      console.log(chalk.blue(`\n📋 New task assigned: ${execution.id}`))
+      console.log(chalk.gray(`Task ID: ${execution.taskId}`))
+      console.log(chalk.gray(`Trigger: ${execution.trigger}`))
+
+      // Execute the task
+      await taskExecutor.executeTask(execution)
+    })
 
     // Set the realtime service in task executor
-    // @ts-ignore - Hacky but works for now
+    // @ts-expect-error - Hacky but works for now
     taskExecutor.realtimeService = realtimeService
 
     // Set destination ID in realtime service
@@ -192,18 +189,18 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     // Handle shutdown
     const shutdown = async () => {
       console.log(chalk.yellow('\n\nShutting down agent...'))
-      
+
       // Update status to offline if we created the registry
       if (registry) {
         await registry.updateStatus('offline')
       }
-      
+
       // Stop services
       await realtimeService.stop()
       if (registry) {
         await registry.unregister()
       }
-      
+
       console.log(chalk.green('Agent stopped'))
       process.exit(0)
     }
@@ -213,14 +210,13 @@ export async function startAgent(options: AgentOptions): Promise<void> {
 
     // Keep the process running
     await new Promise(() => {})
-
   } catch (error: any) {
     spinner.fail(`Failed to start agent: ${error.message}`)
-    
+
     if (options.debug) {
       console.error(error)
     }
-    
+
     process.exit(1)
   }
 }
@@ -228,7 +224,7 @@ export async function startAgent(options: AgentOptions): Promise<void> {
 /**
  * Stop the agent
  */
-export async function stopAgent(options: any): Promise<void> {
+export async function stopAgent(_options: any): Promise<void> {
   console.log(chalk.yellow('Agent stop command not yet implemented'))
   console.log(chalk.gray('Use Ctrl+C to stop a running agent'))
 }
@@ -236,14 +232,14 @@ export async function stopAgent(options: any): Promise<void> {
 /**
  * Show agent status
  */
-export async function agentStatus(options: any): Promise<void> {
+export async function agentStatus(_options: any): Promise<void> {
   const spinner = ora('Checking agent status...').start()
 
   try {
     // Check authentication
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -261,7 +257,6 @@ export async function agentStatus(options: any): Promise<void> {
     // TODO: Query agent destinations table to show status
     spinner.succeed('Agent status check complete')
     console.log(chalk.yellow('Status display not yet implemented'))
-
   } catch (error: any) {
     spinner.fail(`Failed to check agent status: ${error.message}`)
     process.exit(1)
@@ -271,14 +266,14 @@ export async function agentStatus(options: any): Promise<void> {
 /**
  * List all agents
  */
-export async function listAgents(options: any): Promise<void> {
+export async function listAgents(_options: any): Promise<void> {
   const spinner = ora('Fetching agents...').start()
 
   try {
     // Check authentication
-    const authManager = new AuthManager()
+    const authManager = AuthManager.getInstance()
     const session = await authManager.getSession()
-    
+
     if (!session) {
       spinner.fail('Not authenticated. Please run "veas auth login" first.')
       process.exit(1)
@@ -287,7 +282,6 @@ export async function listAgents(options: any): Promise<void> {
     // TODO: Query agent destinations table to list agents
     spinner.succeed('Agents fetched')
     console.log(chalk.yellow('Agent listing not yet implemented'))
-
   } catch (error: any) {
     spinner.fail(`Failed to list agents: ${error.message}`)
     process.exit(1)

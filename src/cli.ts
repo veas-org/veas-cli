@@ -5,13 +5,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import * as dotenv from 'dotenv'
+import { agentStatus, listAgents, startAgent, stopAgent } from './commands/agent.js'
 import { login, logout, refresh, status } from './commands/auth.js'
+import { deleteDestination, listDestinations, registerDestination, watchDestination } from './commands/destination.js'
 import { docsSync as syncDocs } from './commands/docs-sync-mcp.js'
 import { configureForClaude, listProjects, test as testMCP } from './commands/mcp.js'
 import { createPAT, listPATs, revokePAT } from './commands/pat.js'
 import { serve } from './commands/serve.js'
-import { startAgent, stopAgent, agentStatus, listAgents } from './commands/agent.js'
-import { listDestinations, registerDestination, deleteDestination, watchDestination } from './commands/destination.js'
 
 // Load environment variables (prioritize .env.local over .env)
 dotenv.config({ path: '.env.local' })
@@ -100,10 +100,7 @@ destCmd
   .option('--json', 'Output as JSON', false)
   .action(listDestinations)
 
-destCmd
-  .command('register')
-  .description('Register a new destination')
-  .action(registerDestination)
+destCmd.command('register').description('Register a new destination').action(registerDestination)
 
 destCmd
   .command('delete <destinationId>')
@@ -111,10 +108,7 @@ destCmd
   .option('--force', 'Skip confirmation', false)
   .action(deleteDestination)
 
-destCmd
-  .command('watch <destinationId>')
-  .description('Watch executions on a destination')
-  .action(watchDestination)
+destCmd.command('watch <destinationId>').description('Watch executions on a destination').action(watchDestination)
 
 // Agent commands
 const agentCmd = program.command('agent').description('Agent execution commands')

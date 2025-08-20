@@ -1,6 +1,6 @@
 /**
  * Agent Types
- * 
+ *
  * Type definitions for the agent execution system
  */
 

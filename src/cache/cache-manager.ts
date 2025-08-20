@@ -69,7 +69,10 @@ export class CacheManager {
 
     const sortedParams = Object.keys(params)
       .sort()
-      .reduce((acc, k) => ({ ...acc, [k]: params[k] }), {})
+      .reduce((acc, k) => {
+        acc[k] = params[k]
+        return acc
+      }, {} as any)
 
     return `${key}:${JSON.stringify(sortedParams)}`
   }

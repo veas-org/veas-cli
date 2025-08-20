@@ -1,29 +1,24 @@
 /**
  * Realtime Service
- * 
+ *
  * Manages Supabase Realtime subscriptions for task execution events
  */
 
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { createClient } from '@supabase/supabase-js'
-import type { AgentConfig, RealtimeMessage, TaskExecution } from './types.js'
 import { logger } from '../utils/logger.js'
+import type { AgentConfig, TaskExecution } from './types.js'
 
 export class RealtimeService {
   private supabase: any
   private channel: RealtimeChannel | null = null
-  private config: AgentConfig
   private destinationId: string | null = null
   private onTaskAssigned: (execution: TaskExecution) => void
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
   private reconnectDelay = 1000
 
-  constructor(
-    config: AgentConfig,
-    onTaskAssigned: (execution: TaskExecution) => void
-  ) {
-    this.config = config
+  constructor(config: AgentConfig, onTaskAssigned: (execution: TaskExecution) => void) {
     this.onTaskAssigned = onTaskAssigned
 
     // Initialize Supabase client
@@ -34,13 +29,13 @@ export class RealtimeService {
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: {
         persistSession: false,
-        autoRefreshToken: false
+        autoRefreshToken: false,
       },
       realtime: {
         params: {
-          eventsPerSecond: 10
-        }
-      }
+          eventsPerSecond: 10,
+        },
+      },
     })
   }
 
@@ -72,11 +67,11 @@ export class RealtimeService {
             event: '*',
             schema: 'agents',
             table: 'executions',
-            filter: `destination_id=eq.${this.destinationId}`
+            filter: `destination_id=eq.${this.destinationId}`,
           },
           (payload: RealtimePostgresChangesPayload<TaskExecution>) => {
             this.handleExecutionChange(payload)
-          }
+          },
         )
         .on(
           'postgres_changes',
@@ -84,16 +79,17 @@ export class RealtimeService {
             event: 'UPDATE',
             schema: 'agents',
             table: 'executions',
-            filter: `status=eq.pending`
+            filter: `status=eq.pending`,
           },
           (payload: RealtimePostgresChangesPayload<TaskExecution>) => {
             // Also listen for unassigned tasks that we might be able to claim
-            if (!payload.new?.destination_id) {
-              this.handlePendingTask(payload.new as TaskExecution)
+            const newTask = payload.new as any
+            if (newTask && !newTask.destination_id) {
+              this.handlePendingTask(newTask as TaskExecution)
             }
-          }
+          },
         )
-        .subscribe((status) => {
+        .subscribe((status: any) => {
           if (status === 'SUBSCRIBED') {
             logger.info('Successfully subscribed to realtime events')
             this.reconnectAttempts = 0
@@ -108,7 +104,6 @@ export class RealtimeService {
 
       // Also listen for task assignments via polling (fallback)
       this.startPolling()
-
     } catch (error) {
       logger.error('Failed to start realtime service:', error)
       throw error
@@ -136,20 +131,21 @@ export class RealtimeService {
     const { eventType, new: newRecord, old: oldRecord } = payload
 
     logger.debug(`Execution change event: ${eventType}`, {
-      executionId: newRecord?.id || oldRecord?.id
+      executionId: (newRecord as any)?.id || (oldRecord as any)?.id,
     })
 
     if (eventType === 'INSERT' || eventType === 'UPDATE') {
-      const execution = newRecord as TaskExecution
-      
+      const execution = newRecord as any
+
       // Check if this is a new assignment for us
       if (
+        execution &&
         execution.status === 'pending' &&
         execution.destination_id === this.destinationId &&
         !execution.claimed_at
       ) {
         logger.info(`New task assigned: ${execution.id}`)
-        this.onTaskAssigned(execution)
+        this.onTaskAssigned(execution as TaskExecution)
       }
     }
   }
@@ -158,9 +154,10 @@ export class RealtimeService {
    * Handle pending tasks that might be claimable
    */
   private async handlePendingTask(execution: TaskExecution) {
-    if (!execution || execution.destination_id) return
+    const exec = execution as any
+    if (!exec || exec.destination_id) return
 
-    logger.debug(`Found pending task without destination: ${execution.id}`)
+    logger.debug(`Found pending task without destination: ${exec.id}`)
 
     // Try to claim the task
     try {
@@ -169,9 +166,9 @@ export class RealtimeService {
         .update({
           destination_id: this.destinationId,
           assigned_at: new Date().toISOString(),
-          claimed_at: new Date().toISOString()
+          claimed_at: new Date().toISOString(),
         })
-        .eq('id', execution.id)
+        .eq('id', exec.id)
         .is('destination_id', null)
         .eq('status', 'pending')
         .select()
@@ -196,9 +193,11 @@ export class RealtimeService {
     }
 
     this.reconnectAttempts++
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
+    const delay = this.reconnectDelay * 2 ** (this.reconnectAttempts - 1)
 
-    logger.info(`Attempting to reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`)
+    logger.info(
+      `Attempting to reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`,
+    )
 
     setTimeout(async () => {
       if (this.channel) {
@@ -217,7 +216,7 @@ export class RealtimeService {
     // Poll every 5 seconds for new tasks
     this.pollingInterval = setInterval(async () => {
       await this.pollForTasks()
-    }, 5000)
+    }, 5000) as unknown as NodeJS.Timeout
   }
 
   private stopPolling() {
@@ -280,7 +279,7 @@ export class RealtimeService {
   async updateExecutionStatus(
     executionId: string,
     status: TaskExecution['status'],
-    updates: Partial<TaskExecution> = {}
+    updates: Partial<TaskExecution> = {},
   ): Promise<void> {
     try {
       const { error } = await this.supabase
@@ -288,12 +287,8 @@ export class RealtimeService {
         .update({
           status,
           ...updates,
-          ...(status === 'running' && !updates.started_at
-            ? { started_at: new Date().toISOString() }
-            : {}),
-          ...(status === 'completed' || status === 'failed'
-            ? { completed_at: new Date().toISOString() }
-            : {})
+          ...(status === 'running' && !(updates as any).started_at ? { started_at: new Date().toISOString() } : {}),
+          ...(status === 'completed' || status === 'failed' ? { completed_at: new Date().toISOString() } : {}),
         })
         .eq('id', executionId)
 
@@ -314,7 +309,7 @@ export class RealtimeService {
     executionId: string,
     level: 'debug' | 'info' | 'warning' | 'error',
     message: string,
-    data?: Record<string, any>
+    data?: Record<string, any>,
   ): Promise<void> {
     try {
       // Get current logs
@@ -334,7 +329,7 @@ export class RealtimeService {
         timestamp: new Date().toISOString(),
         level,
         message,
-        data
+        data,
       })
 
       // Update logs
