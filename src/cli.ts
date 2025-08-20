@@ -10,6 +10,8 @@ import { docsSync as syncDocs } from './commands/docs-sync-mcp.js'
 import { configureForClaude, listProjects, test as testMCP } from './commands/mcp.js'
 import { createPAT, listPATs, revokePAT } from './commands/pat.js'
 import { serve } from './commands/serve.js'
+import { startAgent, stopAgent, agentStatus, listAgents } from './commands/agent.js'
+import { listDestinations, registerDestination, deleteDestination, watchDestination } from './commands/destination.js'
 
 // Load environment variables (prioritize .env.local over .env)
 dotenv.config({ path: '.env.local' })
@@ -87,6 +89,53 @@ docsCmd
   .option('--folder <folder>', 'Specific folder to sync')
   .option('--config <path>', 'Path to veas.yaml config file')
   .action(syncDocs)
+
+// Destination commands
+const destCmd = program.command('destination').alias('dest').description('Manage agent destinations')
+
+destCmd
+  .command('list')
+  .description('List all destinations')
+  .option('--organization-id <id>', 'Organization ID')
+  .option('--json', 'Output as JSON', false)
+  .action(listDestinations)
+
+destCmd
+  .command('register')
+  .description('Register a new destination')
+  .action(registerDestination)
+
+destCmd
+  .command('delete <destinationId>')
+  .description('Delete a destination')
+  .option('--force', 'Skip confirmation', false)
+  .action(deleteDestination)
+
+destCmd
+  .command('watch <destinationId>')
+  .description('Watch executions on a destination')
+  .action(watchDestination)
+
+// Agent commands
+const agentCmd = program.command('agent').description('Agent execution commands')
+
+agentCmd
+  .command('start')
+  .description('Start agent to execute tasks')
+  .option('--destination-id <id>', 'Destination ID (optional, will create/use existing)')
+  .option('--name <name>', 'Agent name')
+  .option('--organization-id <id>', 'Organization ID')
+  .option('--max-concurrent-tasks <count>', 'Maximum concurrent tasks', '1')
+  .option('--heartbeat-interval <ms>', 'Heartbeat interval in milliseconds', '30000')
+  .option('--capabilities <json>', 'Agent capabilities as JSON')
+  .option('--debug', 'Enable debug logging', false)
+  .action(startAgent)
+
+agentCmd.command('stop').description('Stop running agent').action(stopAgent)
+
+agentCmd.command('status').description('Show agent status').action(agentStatus)
+
+agentCmd.command('list').description('List all agents').action(listAgents)
 
 // Serve command (standalone for backward compatibility)
 program

@@ -51,7 +51,7 @@ describe('Auth Commands', () => {
   describe('login', () => {
     it('should successfully login with valid credentials', async () => {
       vi.mocked(prompts.text).mockResolvedValueOnce('test@example.com')
-      vi.mocked(prompts.password).mockResolvedValueOnce('password123')
+      vi.mocked(prompts.password).mockResolvedValueOnce('V3@s$2024!Dev#Seed&Test')
 
       mockAuthManager.login.mockResolvedValueOnce({
         user: mockUser,
@@ -70,7 +70,7 @@ describe('Auth Commands', () => {
         validate: expect.any(Function),
       })
 
-      expect(mockAuthManager.login).toHaveBeenCalledWith('test@example.com', 'password123')
+      expect(mockAuthManager.login).toHaveBeenCalledWith('test@example.com', 'V3@s$2024!Dev#Seed&Test')
 
       expect(mockSpinner.start).toHaveBeenCalledWith('Logging in...')
       expect(mockSpinner.stop).toHaveBeenCalledWith(expect.stringContaining('Logged in as'))
@@ -83,7 +83,7 @@ describe('Auth Commands', () => {
         validateFn = options.validate
         return 'test@example.com'
       })
-      vi.mocked(prompts.password).mockResolvedValueOnce('password123')
+      vi.mocked(prompts.password).mockResolvedValueOnce('V3@s$2024!Dev#Seed&Test')
       mockAuthManager.login.mockResolvedValueOnce({
         user: mockUser,
         token: 'test-token',
@@ -101,7 +101,7 @@ describe('Auth Commands', () => {
       vi.mocked(prompts.text).mockResolvedValueOnce('test@example.com')
       vi.mocked(prompts.password).mockImplementation(async (options: any) => {
         validateFn = options.validate
-        return 'password123'
+        return 'V3@s$2024!Dev#Seed&Test'
       })
       mockAuthManager.login.mockResolvedValueOnce({
         user: mockUser,

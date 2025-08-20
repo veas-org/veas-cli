@@ -48,7 +48,7 @@ describe('AuthManager', () => {
   describe('login', () => {
     it('should successfully login and store encrypted credentials', async () => {
       const email = 'test@example.com'
-      const password = 'password123'
+      const password = 'V3@s$2024!Dev#Seed&Test'
 
       vi.mocked(axios.post).mockResolvedValueOnce({
         data: {
@@ -100,7 +100,7 @@ describe('AuthManager', () => {
 
     it('should throw error when no user or session returned', async () => {
       const email = 'test@example.com'
-      const password = 'password123'
+      const password = 'V3@s$2024!Dev#Seed&Test'
 
       vi.mocked(axios.post).mockResolvedValueOnce({
         data: {},
