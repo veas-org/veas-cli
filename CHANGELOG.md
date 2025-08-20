@@ -1,4 +1,11 @@
-## [1.0.11] - 2025-08-17
+## [1.1.0] - 2025-08-20
+
+### Changes
+
+- feat: add agents (00d72f4)
+- Merge branch 'main' of https://github.com/veas-org/veas-cli (2edeee4)
+- fix: lint issues (bdfa884)
+
 
 ### Changes
 
