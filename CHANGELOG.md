@@ -1,4 +1,10 @@
-## [1.1.0] - 2025-08-20
+## [1.2.0] - 2025-08-21
+
+### Changes
+
+- feat: implement real-time task execution monitoring with stdio streaming (ebac301)
+- chore: add precommit script and format code with biome (c9aeac5)
+
 
 ### Changes
 
