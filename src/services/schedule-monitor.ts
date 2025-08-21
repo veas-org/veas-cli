@@ -102,7 +102,8 @@ export class ScheduleMonitor {
           filter: `destination_id=eq.${this.destinationId}`,
         },
         async payload => {
-          console.log(chalk.blue('\n📥 New execution assigned:'), payload.new.id)
+          console.log(chalk.blue('\n📥 New execution assigned (INSERT):'), payload.new.id)
+          console.log(chalk.gray('  Payload:'), JSON.stringify(payload.new, null, 2))
           await this.handleNewExecution(payload.new as Execution)
         },
       )
@@ -116,23 +117,28 @@ export class ScheduleMonitor {
         },
         async payload => {
           const execution = payload.new as Execution
+          console.log(chalk.gray(`  Assigned execution UPDATE: ${execution.id}, status: ${execution.status}, claimed: ${execution.claimed_at}`))
           if (execution.status === 'pending' && !execution.claimed_at) {
             console.log(chalk.blue('\n📥 Execution ready to process:'), execution.id)
             await this.handleNewExecution(execution)
           }
         },
       )
-      .subscribe(status => {
-        if (status === 'SUBSCRIBED') {
+      .subscribe((status, err) => {
+        if (err) {
+          console.error(chalk.red('  ✗ Failed to subscribe to assigned executions:'), err)
+        } else if (status === 'SUBSCRIBED') {
           console.log(chalk.gray('  ✓ Subscribed to assigned executions'))
+        } else {
+          console.log(chalk.gray(`  Assigned subscription status: ${status}`))
         }
       })
 
     this.channels.set('executions-assigned', assignedChannel)
 
-    // Also subscribe to ALL executions in the organization to claim unassigned ones
-    const unassignedChannel = this.supabase
-      .channel(`executions-org-${this.organizationId}`)
+    // Also subscribe to ALL executions to catch any that might be for our tasks
+    const allExecutionsChannel = this.supabase
+      .channel(`executions-all-${this.organizationId}`)
       .on(
         'postgres_changes',
         {
@@ -142,10 +148,16 @@ export class ScheduleMonitor {
         },
         async payload => {
           const execution = payload.new as Execution
-          // Check if this execution is for a task in our organization and not yet assigned
+          console.log(chalk.gray(`  New execution detected (INSERT): ${execution.id}, task: ${execution.task_id}, dest: ${execution.destination_id}`))
+          
+          // Check if this execution is for a task in our organization
           if (!execution.destination_id) {
             console.log(chalk.yellow('\n🔍 New unassigned execution detected:'), execution.id)
             await this.tryClaimExecution(execution)
+          } else if (execution.destination_id === this.destinationId && !execution.claimed_at) {
+            // This is for us but not yet claimed
+            console.log(chalk.blue('\n📥 New execution for this destination:'), execution.id)
+            await this.handleNewExecution(execution)
           }
         },
       )
@@ -165,13 +177,17 @@ export class ScheduleMonitor {
           }
         },
       )
-      .subscribe(status => {
-        if (status === 'SUBSCRIBED') {
-          console.log(chalk.gray('  ✓ Subscribed to organization executions'))
+      .subscribe((status, err) => {
+        if (err) {
+          console.error(chalk.red('  ✗ Failed to subscribe to all executions:'), err)
+        } else if (status === 'SUBSCRIBED') {
+          console.log(chalk.gray('  ✓ Subscribed to all executions'))
+        } else {
+          console.log(chalk.gray(`  All executions subscription status: ${status}`))
         }
       })
 
-    this.channels.set('executions-unassigned', unassignedChannel)
+    this.channels.set('executions-all', allExecutionsChannel)
   }
 
   /**
