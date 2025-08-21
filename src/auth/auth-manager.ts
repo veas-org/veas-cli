@@ -35,7 +35,20 @@ export class AuthManager {
     // Use machine ID as encryption key source
     const machineId = os.hostname() + os.platform() + os.arch()
     this.encryptionKey = crypto.scryptSync(machineId, 'veas-cli-salt', 32)
-    this.apiUrl = process.env.VEAS_API_URL || 'https://veas.app'
+    // Initialize with default, but allow dynamic updates
+    this.apiUrl = 'https://veas.app'
+    this.updateApiUrl()
+  }
+
+  private updateApiUrl(): void {
+    // Check environment variable and update if set
+    if (process.env.VEAS_API_URL) {
+      this.apiUrl = process.env.VEAS_API_URL
+    }
+  }
+
+  getApiUrl(): string {
+    return this.apiUrl
   }
 
   private async ensureConfigDir() {
@@ -260,6 +273,8 @@ export class AuthManager {
     if (!AuthManager.instance) {
       AuthManager.instance = new AuthManager()
     }
+    // Always update API URL in case env vars were loaded after initial creation
+    AuthManager.instance.updateApiUrl()
     return AuthManager.instance
   }
 

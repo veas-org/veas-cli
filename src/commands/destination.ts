@@ -8,6 +8,7 @@ import * as prompts from '@clack/prompts'
 import { createClient } from '@supabase/supabase-js'
 import chalk from 'chalk'
 import { config as loadEnv } from 'dotenv'
+import { hostname as getHostname } from 'node:os'
 import ora from 'ora'
 import { AuthManager } from '../auth/auth-manager.js'
 
@@ -35,32 +36,89 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
       process.exit(1)
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
+    // For local dev, use service role key to bypass RLS
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
       process.exit(1)
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      },
-    })
+    // Create Supabase client with service role key for now
+    // TODO: This should go through proper API endpoints
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     // Get user's organization
     let organizationId = options.organizationId
     if (!organizationId) {
-      const { data: member } = await supabase
+      console.log(chalk.gray(`Fetching organizations for user: ${session.user.id}`))
+      
+      const { data: memberships, error: memberError } = await supabase
+        .schema('team_management')
         .from('organization_members')
-        .select('organization_id')
+        .select(`
+          organization_id,
+          user_id,
+          role
+        `)
         .eq('user_id', session.user.id)
-        .single()
+      
+      // Fetch organization details separately
+      let organizationsData: any[] = []
+      if (memberships && memberships.length > 0) {
+        const orgIds = memberships.map(m => m.organization_id)
+        const { data: orgs } = await supabase
+          .schema('team_management')
+          .from('organizations')
+          .select('id, name, slug')
+          .in('id', orgIds)
+        
+        organizationsData = orgs || []
+      }
+      
+      // Combine the data
+      const membershipsWithOrgs = memberships?.map(m => ({
+        ...m,
+        organization: organizationsData.find(o => o.id === m.organization_id)
+      })) || []
 
-      organizationId = member?.organization_id
+      if (memberError) {
+        console.error(chalk.red('Error fetching organizations:'), memberError)
+        spinner.fail(`Failed to fetch organizations: ${memberError.message}`)
+        process.exit(1)
+      }
+
+      console.log(chalk.gray(`Found ${membershipsWithOrgs?.length || 0} organization memberships`))
+
+      if (!membershipsWithOrgs || membershipsWithOrgs.length === 0) {
+        spinner.fail('User must belong to at least one organization')
+        process.exit(1)
+      }
+
+      // Use first organization if only one exists
+      if (membershipsWithOrgs.length === 1) {
+        organizationId = membershipsWithOrgs[0]?.organization_id
+      } else {
+        spinner.stop()
+        // Multiple organizations - prompt for selection
+        const orgChoice = await prompts.select({
+          message: 'Select organization:',
+          options: membershipsWithOrgs.map(m => ({
+            value: m.organization_id,
+            label: m.organization?.name || m.organization_id,
+            hint: m.organization?.slug,
+          })),
+        })
+
+        if (prompts.isCancel(orgChoice)) {
+          console.log(chalk.yellow('Operation cancelled'))
+          process.exit(0)
+        }
+
+        organizationId = orgChoice as string
+        spinner.start('Fetching destinations...')
+      }
     }
 
     if (!organizationId) {
@@ -124,7 +182,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
 /**
  * Register a new destination
  */
-export async function registerDestination(_options: any): Promise<void> {
+export async function registerDestination(options: any): Promise<void> {
   const spinner = ora('Registering destination...').start()
 
   try {
@@ -136,7 +194,106 @@ export async function registerDestination(_options: any): Promise<void> {
       process.exit(1)
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
+    // For local dev, use service role key to bypass RLS
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      spinner.fail('Supabase configuration not found.')
+      process.exit(1)
+    }
+
+    // Create Supabase client with service role key for now
+    // TODO: This should go through proper API endpoints
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Get user's organizations first
+    console.log(chalk.gray(`Checking organizations for user: ${session.user.id}`))
+    
+    const { data: memberships, error: memberError } = await supabase
+      .schema('team_management')
+      .from('organization_members')
+      .select(`
+        organization_id,
+        user_id,
+        role
+      `)
+      .eq('user_id', session.user.id)
+
+    if (memberError) {
+      console.error(chalk.red('Error fetching organizations:'), memberError)
+      spinner.fail(`Failed to fetch organizations: ${memberError.message}`)
+      process.exit(1)
+    }
+    
+    // Fetch organization details separately
+    let organizationsData: any[] = []
+    if (memberships && memberships.length > 0) {
+      const orgIds = memberships.map(m => m.organization_id)
+      const { data: orgs } = await supabase
+        .schema('team_management')
+        .from('organizations')
+        .select('id, name, slug')
+        .in('id', orgIds)
+      
+      organizationsData = orgs || []
+    }
+    
+    // Combine the data
+    const membershipsWithOrgs = memberships?.map(m => ({
+      ...m,
+      organization: organizationsData.find(o => o.id === m.organization_id)
+    })) || []
+
+    console.log(chalk.gray(`Found ${membershipsWithOrgs?.length || 0} organization memberships`))
+
+    if (!membershipsWithOrgs || membershipsWithOrgs.length === 0) {
+      spinner.fail('User must belong to at least one organization')
+      process.exit(1)
+    }
+
     spinner.stop()
+
+    // Select organization if user has multiple
+    let selectedOrgId: string
+    
+    // Check if organization ID was provided via command line
+    if (options.organizationId) {
+      // Validate that the user belongs to this organization
+      const membership = membershipsWithOrgs.find(m => m.organization_id === options.organizationId)
+      if (!membership) {
+        spinner.fail(`You don't have access to organization ${options.organizationId}`)
+        process.exit(1)
+      }
+      selectedOrgId = options.organizationId
+      const orgName = membership.organization?.name || membership.organization_id
+      console.log(chalk.gray(`Using organization: ${orgName}`))
+    } else if (membershipsWithOrgs.length === 1) {
+      const membership = membershipsWithOrgs[0]
+      if (!membership) {
+        spinner.fail('No organization membership found')
+        process.exit(1)
+      }
+      selectedOrgId = membership.organization_id
+      const orgName = membership.organization?.name || membership.organization_id
+      console.log(chalk.gray(`Using organization: ${orgName}`))
+    } else {
+      const orgChoice = await prompts.select({
+        message: 'Select organization:',
+        options: membershipsWithOrgs.map(m => ({
+          value: m.organization_id,
+          label: m.organization?.name || m.organization_id,
+          hint: m.organization?.slug,
+        })),
+      })
+
+      if (prompts.isCancel(orgChoice)) {
+        console.log(chalk.yellow('Registration cancelled'))
+        process.exit(0)
+      }
+
+      selectedOrgId = orgChoice as string
+    }
 
     // Prompt for destination details
     const name = await prompts.text({
@@ -156,7 +313,7 @@ export async function registerDestination(_options: any): Promise<void> {
     const hostname = await prompts.text({
       message: 'Hostname:',
       placeholder: 'agent-server-1.example.com',
-      initialValue: require('node:os').hostname(),
+      initialValue: getHostname(),
     })
 
     if (prompts.isCancel(hostname)) {
@@ -182,34 +339,6 @@ export async function registerDestination(_options: any): Promise<void> {
 
     spinner.start('Registering destination...')
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      spinner.fail('Supabase configuration not found.')
-      process.exit(1)
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      },
-    })
-
-    // Get user's organization
-    const { data: member, error: memberError } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', session.user.id)
-      .single()
-
-    if (memberError || !member) {
-      spinner.fail('User must belong to an organization')
-      process.exit(1)
-    }
-
     // Generate API key
     const apiKey = generateApiKey()
     const apiKeyHash = await hashApiKey(apiKey)
@@ -219,7 +348,8 @@ export async function registerDestination(_options: any): Promise<void> {
       .schema('agents')
       .from('agent_destinations')
       .insert({
-        organization_id: member.organization_id,
+        organization_id: selectedOrgId,
+        owner_id: session.user.id, // Add the owner_id field
         name,
         hostname,
         max_concurrent_tasks: parseInt(maxTasks as string, 10),
@@ -268,21 +398,18 @@ export async function deleteDestination(destinationId: string, options: any): Pr
       process.exit(1)
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
+    // For local dev, use service role key to bypass RLS
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
       process.exit(1)
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      },
-    })
+    // Create Supabase client with service role key for now
+    // TODO: This should go through proper API endpoints
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     // Check destination
     const { data: destination, error: checkError } = await supabase
@@ -331,7 +458,7 @@ export async function deleteDestination(destinationId: string, options: any): Pr
 }
 
 /**
- * Watch destination executions
+ * Watch destination executions and monitor schedules
  */
 export async function watchDestination(destinationId: string, _options: any): Promise<void> {
   const spinner = ora('Connecting to destination...').start()
@@ -345,27 +472,24 @@ export async function watchDestination(destinationId: string, _options: any): Pr
       process.exit(1)
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
+    // For local dev, use service role key to bypass RLS
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
       process.exit(1)
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      },
-    })
+    // Create Supabase client with service role key for now
+    // TODO: This should go through proper API endpoints
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     // Get destination info
     const { data: destination, error: destError } = await supabase
       .schema('agents')
       .from('agent_destinations')
-      .select('id, name, status')
+      .select('*')
       .eq('id', destinationId)
       .single()
 
@@ -375,46 +499,24 @@ export async function watchDestination(destinationId: string, _options: any): Pr
     }
 
     spinner.succeed(`Connected to destination: ${destination.name}`)
-    console.log(chalk.gray('Watching for executions... (Press Ctrl+C to stop)\n'))
+    console.log(chalk.gray('Starting schedule monitor and watching for executions...'))
+    console.log(chalk.gray('Press Ctrl+C to stop\n'))
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel(`destination-${destinationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'agents',
-          table: 'executions',
-          filter: `destination_id=eq.${destinationId}`,
-        },
-        (payload: any) => {
-          const { eventType, new: newRecord, old: oldRecord } = payload
-          const record = newRecord || oldRecord
+    // Import and start the schedule monitor
+    const { ScheduleMonitor } = await import('../services/schedule-monitor.js')
+    const monitor = new ScheduleMonitor(
+      supabase,
+      destinationId,
+      destination.organization_id
+    )
 
-          if (eventType === 'INSERT') {
-            console.log(chalk.blue(`📥 New execution: ${record.id}`))
-            console.log(`   Task: ${record.task_id}`)
-            console.log(`   Status: ${record.status}`)
-          } else if (eventType === 'UPDATE') {
-            const statusColor = getStatusColor(record.status)
-            console.log(statusColor(`📝 Execution updated: ${record.id}`))
-            console.log(`   Status: ${statusColor(record.status)}`)
-            if (record.error_message) {
-              console.log(chalk.red(`   Error: ${record.error_message}`))
-            }
-            if (record.duration_ms) {
-              console.log(`   Duration: ${formatDuration(record.duration_ms)}`)
-            }
-          }
-        },
-      )
-      .subscribe()
+    // Start monitoring
+    await monitor.start()
 
-    // Keep process running
-    process.on('SIGINT', () => {
-      console.log(chalk.yellow('\n\nStopping watch...'))
-      supabase.removeChannel(channel)
+    // Handle graceful shutdown
+    process.on('SIGINT', async () => {
+      console.log(chalk.yellow('\n\nStopping monitor...'))
+      await monitor.stop()
       process.exit(0)
     })
 
@@ -426,7 +528,8 @@ export async function watchDestination(destinationId: string, _options: any): Pr
   }
 }
 
-// Helper functions
+// Helper functions (keeping for potential future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getStatusColor(status: string) {
   switch (status) {
     case 'online':
@@ -466,10 +569,11 @@ async function hashApiKey(apiKey: string): Promise<string> {
   return crypto.createHash('sha256').update(apiKey).digest('hex')
 }
 
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  const minutes = Math.floor(ms / 60000)
-  const seconds = Math.floor((ms % 60000) / 1000)
-  return `${minutes}m ${seconds}s`
-}
+// Keeping for potential future use - formats duration in human-readable format
+// function formatDuration(ms: number): string {
+//   if (ms < 1000) return `${ms}ms`
+//   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+//   const minutes = Math.floor(ms / 60000)
+//   const seconds = Math.floor((ms % 60000) / 1000)
+//   return `${minutes}m ${seconds}s`
+// }

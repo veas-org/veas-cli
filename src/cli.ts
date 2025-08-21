@@ -100,7 +100,11 @@ destCmd
   .option('--json', 'Output as JSON', false)
   .action(listDestinations)
 
-destCmd.command('register').description('Register a new destination').action(registerDestination)
+destCmd
+  .command('register')
+  .description('Register a new destination')
+  .option('--organization-id <id>', 'Organization ID (will prompt if not provided)')
+  .action(registerDestination)
 
 destCmd
   .command('delete <destinationId>')
