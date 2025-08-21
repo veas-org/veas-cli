@@ -2,10 +2,10 @@
  * Tests for destination commands
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { hostname } from 'node:os'
 import * as prompts from '@clack/prompts'
 import { createClient } from '@supabase/supabase-js'
-import { hostname } from 'node:os'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthManager } from '../auth/auth-manager.js'
 
 // Mock dependencies first before importing the module
@@ -35,12 +35,7 @@ vi.mock('ora', () => ({
 }))
 
 // Now import the module being tested
-import {
-  deleteDestination,
-  listDestinations,
-  registerDestination,
-  watchDestination,
-} from './destination.js'
+import { deleteDestination, listDestinations, registerDestination, watchDestination } from './destination.js'
 
 describe('Destination Commands', () => {
   let mockSupabase: any
@@ -248,7 +243,7 @@ describe('Destination Commands', () => {
 
     it('should use system hostname as default', async () => {
       const systemHostname = hostname()
-      
+
       vi.mocked(prompts.text)
         .mockResolvedValueOnce('my-agent-server') // name
         .mockImplementationOnce((options: any) => {
@@ -290,9 +285,7 @@ describe('Destination Commands', () => {
         return Promise.resolve('valid-name')
       })
 
-      vi.mocked(prompts.text)
-        .mockResolvedValueOnce('valid-hostname')
-        .mockResolvedValueOnce('3')
+      vi.mocked(prompts.text).mockResolvedValueOnce('valid-hostname').mockResolvedValueOnce('3')
 
       vi.mocked(prompts.isCancel).mockReturnValue(false)
 
@@ -406,10 +399,12 @@ describe('Destination Commands', () => {
       })
 
       // Mock the delete chain to return a promise
-      mockSupabase.eq.mockImplementation(() => Promise.resolve({
-        data: null,
-        error: null,
-      }))
+      mockSupabase.eq.mockImplementation(() =>
+        Promise.resolve({
+          data: null,
+          error: null,
+        }),
+      )
 
       vi.mocked(prompts.confirm).mockResolvedValue(true)
       vi.mocked(prompts.isCancel).mockReturnValue(false)
@@ -435,10 +430,12 @@ describe('Destination Commands', () => {
       })
 
       // Mock the delete chain to return a promise
-      mockSupabase.eq.mockImplementation(() => Promise.resolve({
-        data: null,
-        error: null,
-      }))
+      mockSupabase.eq.mockImplementation(() =>
+        Promise.resolve({
+          data: null,
+          error: null,
+        }),
+      )
 
       await deleteDestination(destinationId, { force: true })
 
@@ -481,11 +478,11 @@ describe('Destination Commands', () => {
       let sigintHandler: any
 
       mockSupabase.single.mockResolvedValue({
-        data: { 
-          id: destinationId, 
+        data: {
+          id: destinationId,
           name: 'Test Server',
           organization_id: organizationId,
-          status: 'online' 
+          status: 'online',
         },
         error: null,
       })
@@ -495,9 +492,9 @@ describe('Destination Commands', () => {
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue(undefined),
       }
-      
+
       const mockScheduleMonitorClass = vi.fn(() => mockMonitor)
-      
+
       // Mock dynamic import
       vi.doMock('../services/schedule-monitor.js', () => ({
         ScheduleMonitor: mockScheduleMonitorClass,
@@ -512,20 +509,16 @@ describe('Destination Commands', () => {
 
       // Start watching
       const watchPromise = watchDestination(destinationId, {})
-      
+
       // Give it time to set up
       await new Promise(resolve => setTimeout(resolve, 100))
 
       expect(mockAuthManager.getSession).toHaveBeenCalled()
       expect(mockSupabase.schema).toHaveBeenCalledWith('agents')
-      
+
       // Verify ScheduleMonitor was created with correct params
       const { ScheduleMonitor } = await import('../services/schedule-monitor.js')
-      expect(ScheduleMonitor).toHaveBeenCalledWith(
-        mockSupabase,
-        destinationId,
-        organizationId
-      )
+      expect(ScheduleMonitor).toHaveBeenCalledWith(mockSupabase, destinationId, organizationId)
       expect(mockMonitor.start).toHaveBeenCalled()
 
       // Simulate SIGINT to test cleanup
@@ -558,9 +551,7 @@ describe('Destination Commands', () => {
 
       await expect(watchDestination('dest-123', {})).rejects.toThrow('Process exit')
       expect(processExitSpy).toHaveBeenCalledWith(1)
-      expect(mockSpinner.fail).toHaveBeenCalledWith(
-        'Not authenticated. Please run "veas auth login" first.'
-      )
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Not authenticated. Please run "veas auth login" first.')
     })
   })
 
@@ -606,7 +597,7 @@ describe('Destination Commands', () => {
       mockSupabase.channel.mockReturnValue(mockChannel)
 
       const watchPromise = watchDestination(destinationId, {})
-      
+
       await new Promise(resolve => setTimeout(resolve, 100))
 
       // Test different duration formats

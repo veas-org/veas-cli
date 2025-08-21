@@ -3,7 +3,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import { ScheduleMonitor } from './schedule-monitor.js'
 import { TaskExecutor } from './task-executor.js'
 
@@ -38,10 +37,13 @@ describe('ScheduleMonitor', () => {
     }
 
     // Mock TaskExecutor
-    vi.mocked(TaskExecutor).mockImplementation(() => ({
-      executeTask: vi.fn().mockResolvedValue(undefined),
-      handleToolCalls: vi.fn().mockResolvedValue([]),
-    } as any))
+    vi.mocked(TaskExecutor).mockImplementation(
+      () =>
+        ({
+          executeTask: vi.fn().mockResolvedValue(undefined),
+          handleToolCalls: vi.fn().mockResolvedValue([]),
+        }) as any,
+    )
 
     monitor = new ScheduleMonitor(mockSupabase, destinationId, organizationId)
   })
@@ -55,7 +57,7 @@ describe('ScheduleMonitor', () => {
     it('should initialize monitoring and subscriptions', async () => {
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -65,9 +67,9 @@ describe('ScheduleMonitor', () => {
       mockSupabase.channel.mockReturnValue(mockChannel)
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [{ id: 'task-1' }], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [{ id: 'task-1' }],
+        error: null,
       })
 
       vi.useFakeTimers()
@@ -79,7 +81,7 @@ describe('ScheduleMonitor', () => {
         expect.objectContaining({
           status: 'online',
           last_heartbeat_at: expect.any(String),
-        })
+        }),
       )
 
       // Verify channel subscriptions
@@ -94,18 +96,16 @@ describe('ScheduleMonitor', () => {
     })
 
     it('should handle tasks query error gracefully', async () => {
-      mockSupabase.select.mockResolvedValue({ 
-        data: null, 
-        error: new Error('Query failed') 
+      mockSupabase.select.mockResolvedValue({
+        data: null,
+        error: new Error('Query failed'),
       })
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
 
       await monitor.start()
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('No tasks found for organization')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('No tasks found for organization'))
     })
   })
 
@@ -113,7 +113,7 @@ describe('ScheduleMonitor', () => {
     it('should clean up resources and update status', async () => {
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -123,9 +123,9 @@ describe('ScheduleMonitor', () => {
       mockSupabase.channel.mockReturnValue(mockChannel)
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [{ id: 'task-1' }], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [{ id: 'task-1' }],
+        error: null,
       })
 
       await monitor.start()
@@ -138,7 +138,7 @@ describe('ScheduleMonitor', () => {
       expect(mockSupabase.update).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'offline',
-        })
+        }),
       )
     })
   })
@@ -162,7 +162,7 @@ describe('ScheduleMonitor', () => {
           }
           return mockChannel
         }),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -172,9 +172,9 @@ describe('ScheduleMonitor', () => {
       mockSupabase.channel.mockReturnValue(mockChannel)
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [],
+        error: null,
       })
 
       await monitor.start()
@@ -205,7 +205,7 @@ describe('ScheduleMonitor', () => {
           }
           return mockChannel
         }),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -215,9 +215,9 @@ describe('ScheduleMonitor', () => {
       mockSupabase.channel.mockReturnValue(mockChannel)
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [],
+        error: null,
       })
 
       await monitor.start()
@@ -260,14 +260,14 @@ describe('ScheduleMonitor', () => {
 
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [],
+        error: null,
       })
 
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -324,14 +324,14 @@ describe('ScheduleMonitor', () => {
       })
 
       mockSupabase.update.mockResolvedValue({ error: null })
-      mockSupabase.insert.mockResolvedValue({ 
+      mockSupabase.insert.mockResolvedValue({
         data: { id: 'exec-new' },
-        error: null 
+        error: null,
       })
 
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -356,7 +356,7 @@ describe('ScheduleMonitor', () => {
           destination_id: destinationId,
           status: 'pending',
           trigger: 'scheduled',
-        })
+        }),
       )
 
       // Verify schedule was updated
@@ -365,7 +365,7 @@ describe('ScheduleMonitor', () => {
           next_run_at: expect.any(String),
           last_run_at: expect.any(String),
           run_count: 6,
-        })
+        }),
       )
 
       vi.useRealTimers()
@@ -376,14 +376,14 @@ describe('ScheduleMonitor', () => {
     it('should send heartbeats periodically', async () => {
       mockSupabase.update.mockResolvedValue({ error: null })
       mockSupabase.insert.mockResolvedValue({ error: null })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [],
+        error: null,
       })
 
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -403,7 +403,7 @@ describe('ScheduleMonitor', () => {
           status: 'online',
           active_tasks: 0,
           queued_tasks: 0,
-        })
+        }),
       )
 
       // Advance timer for next heartbeat
@@ -417,17 +417,17 @@ describe('ScheduleMonitor', () => {
 
     it('should handle heartbeat errors gracefully', async () => {
       mockSupabase.update.mockResolvedValue({ error: null })
-      mockSupabase.insert.mockResolvedValue({ 
-        error: new Error('Heartbeat failed') 
+      mockSupabase.insert.mockResolvedValue({
+        error: new Error('Heartbeat failed'),
       })
-      mockSupabase.select.mockResolvedValue({ 
-        data: [], 
-        error: null 
+      mockSupabase.select.mockResolvedValue({
+        data: [],
+        error: null,
       })
 
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
+        subscribe: vi.fn(callback => {
           callback('SUBSCRIBED')
           return mockChannel
         }),
@@ -440,7 +440,7 @@ describe('ScheduleMonitor', () => {
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to send heartbeat'),
-        expect.any(Error)
+        expect.any(Error),
       )
     })
   })

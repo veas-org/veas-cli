@@ -1,6 +1,6 @@
 /**
  * Schedule Monitor Service
- * 
+ *
  * Monitors scheduled tasks and triggers executions
  */
 
@@ -18,11 +18,7 @@ export class ScheduleMonitor {
   private checkInterval?: NodeJS.Timeout | number
   private heartbeatInterval?: NodeJS.Timeout | number
 
-  constructor(
-    supabase: SupabaseClient,
-    destinationId: string,
-    organizationId: string
-  ) {
+  constructor(supabase: SupabaseClient, destinationId: string, organizationId: string) {
     this.supabase = supabase
     this.destinationId = destinationId
     this.organizationId = organizationId
@@ -103,12 +99,12 @@ export class ScheduleMonitor {
           event: 'INSERT',
           schema: 'agents',
           table: 'executions',
-          filter: `destination_id=eq.${this.destinationId}`
+          filter: `destination_id=eq.${this.destinationId}`,
         },
-        async (payload) => {
+        async payload => {
           console.log(chalk.blue('\n📥 New execution assigned:'), payload.new.id)
           await this.handleNewExecution(payload.new as Execution)
-        }
+        },
       )
       .on(
         'postgres_changes',
@@ -116,17 +112,17 @@ export class ScheduleMonitor {
           event: 'UPDATE',
           schema: 'agents',
           table: 'executions',
-          filter: `destination_id=eq.${this.destinationId}`
+          filter: `destination_id=eq.${this.destinationId}`,
         },
-        async (payload) => {
+        async payload => {
           const execution = payload.new as Execution
           if (execution.status === 'pending' && !execution.claimed_at) {
             console.log(chalk.blue('\n📥 Execution ready to process:'), execution.id)
             await this.handleNewExecution(execution)
           }
-        }
+        },
       )
-      .subscribe((status) => {
+      .subscribe(status => {
         if (status === 'SUBSCRIBED') {
           console.log(chalk.gray('  ✓ Subscribed to assigned executions'))
         }
@@ -142,34 +138,34 @@ export class ScheduleMonitor {
         {
           event: 'INSERT',
           schema: 'agents',
-          table: 'executions'
+          table: 'executions',
         },
-        async (payload) => {
+        async payload => {
           const execution = payload.new as Execution
           // Check if this execution is for a task in our organization and not yet assigned
           if (!execution.destination_id) {
             console.log(chalk.yellow('\n🔍 New unassigned execution detected:'), execution.id)
             await this.tryClaimExecution(execution)
           }
-        }
+        },
       )
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'agents',
-          table: 'executions'
+          table: 'executions',
         },
-        async (payload) => {
+        async payload => {
           const execution = payload.new as Execution
           // Try to claim if status is pending and no destination assigned
           if (execution.status === 'pending' && !execution.destination_id && !execution.claimed_at) {
             console.log(chalk.yellow('\n🔍 Unassigned execution available:'), execution.id)
             await this.tryClaimExecution(execution)
           }
-        }
+        },
       )
-      .subscribe((status) => {
+      .subscribe(status => {
         if (status === 'SUBSCRIBED') {
           console.log(chalk.gray('  ✓ Subscribed to organization executions'))
         }
@@ -205,17 +201,17 @@ export class ScheduleMonitor {
         {
           event: '*',
           schema: 'agents',
-          table: 'schedules'
+          table: 'schedules',
         },
-        async (payload) => {
+        async payload => {
           const schedule = payload.new as Schedule
           if (taskIds.includes(schedule.task_id)) {
             console.log(chalk.blue('\n📅 Schedule updated:'), schedule.id)
             await this.checkSchedule(schedule)
           }
-        }
+        },
       )
-      .subscribe((status) => {
+      .subscribe(status => {
         if (status === 'SUBSCRIBED') {
           console.log(chalk.gray('  ✓ Subscribed to schedules'))
         }
@@ -238,7 +234,7 @@ export class ScheduleMonitor {
    */
   private async tryClaimExecution(execution: Execution): Promise<void> {
     console.log(chalk.gray(`  Attempting to claim execution ${execution.id}...`))
-    
+
     // First check if the task belongs to our organization
     const { data: task, error: taskError } = await this.supabase
       .schema('agents')
@@ -258,7 +254,7 @@ export class ScheduleMonitor {
       .from('executions')
       .update({
         destination_id: this.destinationId,
-        assigned_at: new Date().toISOString()
+        assigned_at: new Date().toISOString(),
       })
       .eq('id', execution.id)
       .is('destination_id', null) // Only claim if not already assigned
@@ -278,11 +274,11 @@ export class ScheduleMonitor {
    */
   private async checkPendingExecutions(): Promise<void> {
     console.log(chalk.gray('  Checking for pending executions...'))
-    
+
     // Look for executions that are either:
     // 1. Already assigned to us but not claimed
     // 2. Not assigned to anyone and for tasks in our organization
-    
+
     // Check assigned but unclaimed
     const { data: assignedExecutions, error: assignedError } = await this.supabase
       .schema('agents')
@@ -308,7 +304,7 @@ export class ScheduleMonitor {
 
     if (tasks && tasks.length > 0) {
       const taskIds = tasks.map(t => t.id)
-      
+
       const { data: unassignedExecutions, error: unassignedError } = await this.supabase
         .schema('agents')
         .from('executions')
@@ -347,7 +343,7 @@ export class ScheduleMonitor {
   private async checkDueSchedules(): Promise<void> {
     // First check for any unclaimed executions
     await this.checkUnclaimedExecutions()
-    
+
     // Then check for due schedules
     const { data: schedules, error } = await this.supabase
       .schema('agents')
@@ -373,7 +369,7 @@ export class ScheduleMonitor {
 
     if (schedules && schedules.length > 0) {
       console.log(chalk.blue(`\n⏰ Found ${schedules.length} due schedule(s)`))
-      
+
       for (const schedule of schedules) {
         await this.triggerScheduledExecution(schedule)
       }
@@ -396,7 +392,7 @@ export class ScheduleMonitor {
     }
 
     const taskIds = tasks.map(t => t.id)
-    
+
     // Check for unclaimed executions
     const { data: unclaimedExecutions } = await this.supabase
       .schema('agents')
@@ -449,7 +445,7 @@ export class ScheduleMonitor {
         trigger: 'scheduled',
         trigger_source: `schedule:${schedule.id}`,
         input_params: {},
-        queued_at: new Date().toISOString()
+        queued_at: new Date().toISOString(),
       })
       .select()
       .single()
@@ -480,22 +476,18 @@ export class ScheduleMonitor {
           nextRunAt = new Date(Date.now() + schedule.interval_seconds * 1000)
         }
         break
-      
+
       case 'once':
         // Disable after running once
-        await this.supabase
-          .schema('agents')
-          .from('schedules')
-          .update({ is_enabled: false })
-          .eq('id', schedule.id)
+        await this.supabase.schema('agents').from('schedules').update({ is_enabled: false }).eq('id', schedule.id)
         return
-      
+
       case 'cron':
         // TODO: Implement cron expression parsing
         // For now, just add 1 hour
         nextRunAt = new Date(Date.now() + 3600000)
         break
-      
+
       default:
         // Manual, webhook, event - don't update next_run_at
         return
@@ -508,7 +500,7 @@ export class ScheduleMonitor {
         .update({
           next_run_at: nextRunAt.toISOString(),
           last_run_at: new Date().toISOString(),
-          run_count: (schedule.run_count || 0) + 1
+          run_count: (schedule.run_count || 0) + 1,
         })
         .eq('id', schedule.id)
 
@@ -537,15 +529,12 @@ export class ScheduleMonitor {
    * Send heartbeat
    */
   private async sendHeartbeat(): Promise<void> {
-    const { error } = await this.supabase
-      .schema('agents')
-      .from('destination_heartbeats')
-      .insert({
-        destination_id: this.destinationId,
-        status: 'online',
-        active_tasks: 0,
-        queued_tasks: 0
-      })
+    const { error } = await this.supabase.schema('agents').from('destination_heartbeats').insert({
+      destination_id: this.destinationId,
+      status: 'online',
+      active_tasks: 0,
+      queued_tasks: 0,
+    })
 
     if (error) {
       console.error(chalk.red('Failed to send heartbeat:'), error)
@@ -562,7 +551,7 @@ export class ScheduleMonitor {
       .update({
         status,
         last_heartbeat_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', this.destinationId)
 

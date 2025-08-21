@@ -3,9 +3,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { TaskExecutor } from './task-executor.js'
 import type { Task } from '../types/agents.js'
+import { TaskExecutor } from './task-executor.js'
 
 describe('TaskExecutor', () => {
   let mockSupabase: any
@@ -93,7 +92,7 @@ describe('TaskExecutor', () => {
         expect.objectContaining({
           destination_id: destinationId,
           claimed_at: expect.any(String),
-        })
+        }),
       )
 
       // Verify status updates
@@ -101,7 +100,7 @@ describe('TaskExecutor', () => {
         expect.objectContaining({
           status: 'running',
           started_at: expect.any(String),
-        })
+        }),
       )
 
       expect(mockSupabase.update).toHaveBeenCalledWith(
@@ -112,23 +111,17 @@ describe('TaskExecutor', () => {
             status: 'success',
             message: expect.stringContaining('Test Task'),
           }),
-        })
+        }),
       )
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Task execution completed successfully')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Task execution completed successfully'))
     })
 
     it('should handle workflow task type', async () => {
       const workflowTask = {
         ...mockTask,
         task_type: 'workflow' as const,
-        workflow: [
-          { name: 'Step 1' },
-          { name: 'Step 2' },
-          { name: 'Step 3' },
-        ],
+        workflow: [{ name: 'Step 1' }, { name: 'Step 2' }, { name: 'Step 3' }],
       }
 
       mockSupabase.single.mockResolvedValue({
@@ -153,7 +146,7 @@ describe('TaskExecutor', () => {
               expect.objectContaining({ step: 3, name: 'Step 3' }),
             ]),
           }),
-        })
+        }),
       )
     })
 
@@ -164,8 +157,8 @@ describe('TaskExecutor', () => {
       }
 
       mockSupabase.single.mockResolvedValue({
-        data: { 
-          ...mockExecution, 
+        data: {
+          ...mockExecution,
           tasks: batchTask,
           input_params: { batch_size: 20 },
         },
@@ -183,7 +176,7 @@ describe('TaskExecutor', () => {
             status: 'success',
             items_processed: 20,
           }),
-        })
+        }),
       )
     })
 
@@ -194,8 +187,8 @@ describe('TaskExecutor', () => {
       }
 
       mockSupabase.single.mockResolvedValue({
-        data: { 
-          ...mockExecution, 
+        data: {
+          ...mockExecution,
           tasks: reportTask,
           input_params: { report_type: 'analytics' },
         },
@@ -213,7 +206,7 @@ describe('TaskExecutor', () => {
             status: 'success',
             report_type: 'analytics',
           }),
-        })
+        }),
       )
     })
 
@@ -240,7 +233,7 @@ describe('TaskExecutor', () => {
             checks_performed: 5,
             alerts_triggered: 0,
           }),
-        })
+        }),
       )
     })
 
@@ -267,7 +260,7 @@ describe('TaskExecutor', () => {
             status: 'success',
             configuration: { custom_field: 'value' },
           }),
-        })
+        }),
       )
     })
 
@@ -281,7 +274,7 @@ describe('TaskExecutor', () => {
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to fetch execution'),
-        expect.any(Error)
+        expect.any(Error),
       )
     })
 
@@ -299,7 +292,7 @@ describe('TaskExecutor', () => {
         expect.objectContaining({
           status: 'failed',
           error_message: 'Task not found',
-        })
+        }),
       )
     })
 
@@ -324,7 +317,7 @@ describe('TaskExecutor', () => {
           status: 'failed',
           error_message: expect.any(String),
           error_details: expect.any(Object),
-        })
+        }),
       )
     })
 
@@ -335,24 +328,20 @@ describe('TaskExecutor', () => {
       })
 
       // Simulate claim failure (already claimed by another destination)
-      mockSupabase.update
-        .mockResolvedValueOnce({ 
-          error: new Error('Execution already claimed') 
-        })
+      mockSupabase.update.mockResolvedValueOnce({
+        error: new Error('Execution already claimed'),
+      })
 
       await executor.executeTask(executionId)
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Task execution failed'),
-        expect.any(Error)
-      )
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Task execution failed'), expect.any(Error))
     })
   })
 
   describe('handleToolCalls', () => {
     it('should handle tool calls successfully', async () => {
       const tools = ['tool1', 'tool2', 'tool3']
-      
+
       const results = await executor.handleToolCalls(tools)
 
       expect(results).toHaveLength(3)
@@ -361,18 +350,14 @@ describe('TaskExecutor', () => {
         status: 'success',
         result: 'Tool tool1 executed successfully',
       })
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Handling 3 tool calls')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Handling 3 tool calls'))
     })
 
     it('should handle empty tool list', async () => {
       const results = await executor.handleToolCalls([])
 
       expect(results).toHaveLength(0)
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Handling 0 tool calls')
-      )
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Handling 0 tool calls'))
     })
   })
 
@@ -390,15 +375,15 @@ describe('TaskExecutor', () => {
       })
 
       // Make update fail
-      mockSupabase.update.mockResolvedValue({ 
-        error: new Error('Update failed') 
+      mockSupabase.update.mockResolvedValue({
+        error: new Error('Update failed'),
       })
 
       await executor.executeTask(executionId)
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to update execution status'),
-        expect.stringContaining('Update failed')
+        expect.stringContaining('Update failed'),
       )
     })
   })

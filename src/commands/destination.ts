@@ -4,11 +4,11 @@
  * Manage agent destinations
  */
 
+import { hostname as getHostname } from 'node:os'
 import * as prompts from '@clack/prompts'
 import { createClient } from '@supabase/supabase-js'
 import chalk from 'chalk'
 import { config as loadEnv } from 'dotenv'
-import { hostname as getHostname } from 'node:os'
 import ora from 'ora'
 import { AuthManager } from '../auth/auth-manager.js'
 
@@ -38,7 +38,10 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
     // For local dev, use service role key to bypass RLS
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
@@ -53,7 +56,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
     let organizationId = options.organizationId
     if (!organizationId) {
       console.log(chalk.gray(`Fetching organizations for user: ${session.user.id}`))
-      
+
       const { data: memberships, error: memberError } = await supabase
         .schema('team_management')
         .from('organization_members')
@@ -63,7 +66,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
           role
         `)
         .eq('user_id', session.user.id)
-      
+
       // Fetch organization details separately
       let organizationsData: any[] = []
       if (memberships && memberships.length > 0) {
@@ -73,15 +76,16 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
           .from('organizations')
           .select('id, name, slug')
           .in('id', orgIds)
-        
+
         organizationsData = orgs || []
       }
-      
+
       // Combine the data
-      const membershipsWithOrgs = memberships?.map(m => ({
-        ...m,
-        organization: organizationsData.find(o => o.id === m.organization_id)
-      })) || []
+      const membershipsWithOrgs =
+        memberships?.map(m => ({
+          ...m,
+          organization: organizationsData.find(o => o.id === m.organization_id),
+        })) || []
 
       if (memberError) {
         console.error(chalk.red('Error fetching organizations:'), memberError)
@@ -196,7 +200,10 @@ export async function registerDestination(options: any): Promise<void> {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
     // For local dev, use service role key to bypass RLS
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
@@ -209,7 +216,7 @@ export async function registerDestination(options: any): Promise<void> {
 
     // Get user's organizations first
     console.log(chalk.gray(`Checking organizations for user: ${session.user.id}`))
-    
+
     const { data: memberships, error: memberError } = await supabase
       .schema('team_management')
       .from('organization_members')
@@ -225,7 +232,7 @@ export async function registerDestination(options: any): Promise<void> {
       spinner.fail(`Failed to fetch organizations: ${memberError.message}`)
       process.exit(1)
     }
-    
+
     // Fetch organization details separately
     let organizationsData: any[] = []
     if (memberships && memberships.length > 0) {
@@ -235,15 +242,16 @@ export async function registerDestination(options: any): Promise<void> {
         .from('organizations')
         .select('id, name, slug')
         .in('id', orgIds)
-      
+
       organizationsData = orgs || []
     }
-    
+
     // Combine the data
-    const membershipsWithOrgs = memberships?.map(m => ({
-      ...m,
-      organization: organizationsData.find(o => o.id === m.organization_id)
-    })) || []
+    const membershipsWithOrgs =
+      memberships?.map(m => ({
+        ...m,
+        organization: organizationsData.find(o => o.id === m.organization_id),
+      })) || []
 
     console.log(chalk.gray(`Found ${membershipsWithOrgs?.length || 0} organization memberships`))
 
@@ -256,7 +264,7 @@ export async function registerDestination(options: any): Promise<void> {
 
     // Select organization if user has multiple
     let selectedOrgId: string
-    
+
     // Check if organization ID was provided via command line
     if (options.organizationId) {
       // Validate that the user belongs to this organization
@@ -400,7 +408,10 @@ export async function deleteDestination(destinationId: string, options: any): Pr
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
     // For local dev, use service role key to bypass RLS
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
@@ -474,7 +485,10 @@ export async function watchDestination(destinationId: string, _options: any): Pr
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
     // For local dev, use service role key to bypass RLS
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
       spinner.fail('Supabase configuration not found.')
@@ -504,11 +518,7 @@ export async function watchDestination(destinationId: string, _options: any): Pr
 
     // Import and start the schedule monitor
     const { ScheduleMonitor } = await import('../services/schedule-monitor.js')
-    const monitor = new ScheduleMonitor(
-      supabase,
-      destinationId,
-      destination.organization_id
-    )
+    const monitor = new ScheduleMonitor(supabase, destinationId, destination.organization_id)
 
     // Start monitoring
     await monitor.start()

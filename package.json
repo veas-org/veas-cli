@@ -43,7 +43,8 @@
     "release": "npm run build && npm publish --access public",
     "release:patch": "npm run version:patch && npm run release",
     "release:minor": "npm run version:minor && npm run release",
-    "release:major": "npm run version:major && npm run release"
+    "release:major": "npm run version:major && npm run release",
+    "precommit": "npm run lint:fix && npm run type-check"
   },
   "dependencies": {
     "@clack/prompts": "^0.8.2",

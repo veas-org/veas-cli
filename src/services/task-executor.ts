@@ -1,6 +1,6 @@
 /**
  * Task Executor Service
- * 
+ *
  * Handles execution of agent tasks
  */
 
@@ -14,11 +14,7 @@ export class TaskExecutor {
   private destinationId: string
   // private organizationId: string // May be used for organization-specific logic in future
 
-  constructor(
-    supabase: SupabaseClient,
-    destinationId: string,
-    _organizationId: string
-  ) {
+  constructor(supabase: SupabaseClient, destinationId: string, _organizationId: string) {
     this.supabase = supabase
     this.destinationId = destinationId
     // this.organizationId = organizationId // Store for future use
@@ -52,7 +48,7 @@ export class TaskExecutor {
       if (!task) {
         console.error(chalk.red('Task not found for execution'))
         await this.updateExecutionStatus(executionId, 'failed', {
-          error_message: 'Task not found'
+          error_message: 'Task not found',
         })
         return
       }
@@ -62,7 +58,7 @@ export class TaskExecutor {
 
       // Update status to running
       await this.updateExecutionStatus(executionId, 'running', {
-        started_at: new Date().toISOString()
+        started_at: new Date().toISOString(),
       })
 
       console.log(chalk.gray(`  Task: ${task.name}`))
@@ -76,7 +72,7 @@ export class TaskExecutor {
       await this.updateExecutionStatus(executionId, 'completed', {
         completed_at: new Date().toISOString(),
         output_result: result,
-        duration_ms: Date.now() - new Date(execution.started_at || execution.queued_at).getTime()
+        duration_ms: Date.now() - new Date(execution.started_at || execution.queued_at).getTime(),
       })
 
       console.log(chalk.green(`\n✅ TASK EXECUTION COMPLETED SUCCESSFULLY`))
@@ -86,7 +82,7 @@ export class TaskExecutor {
       await this.updateExecutionStatus(executionId, 'failed', {
         error_message: error instanceof Error ? error.message : 'Unknown error',
         error_details: { error: String(error) },
-        completed_at: new Date().toISOString()
+        completed_at: new Date().toISOString(),
       })
     }
   }
@@ -100,7 +96,7 @@ export class TaskExecutor {
       .from('executions')
       .update({
         destination_id: this.destinationId,
-        claimed_at: new Date().toISOString()
+        claimed_at: new Date().toISOString(),
       })
       .eq('id', executionId)
       .is('destination_id', null) // Only claim if not already claimed
@@ -113,29 +109,26 @@ export class TaskExecutor {
   /**
    * Run the task workflow
    */
-  private async runTaskWorkflow(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async runTaskWorkflow(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Running task workflow...'))
 
     // Simulate task execution based on type
     switch (task.task_type) {
       case 'single':
         return this.executeSingleTask(task, inputParams)
-      
+
       case 'workflow':
         return this.executeWorkflow(task, inputParams)
-      
+
       case 'batch':
         return this.executeBatchTask(task, inputParams)
-      
+
       case 'report':
         return this.executeReportTask(task, inputParams)
-      
+
       case 'monitoring':
         return this.executeMonitoringTask(task, inputParams)
-      
+
       default:
         return this.executeCustomTask(task, inputParams)
     }
@@ -144,25 +137,22 @@ export class TaskExecutor {
   /**
    * Execute a single task
    */
-  private async executeSingleTask(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async executeSingleTask(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Executing single task...'))
-    
+
     // Get command from task configuration or use default
     const command = task.configuration?.command || inputParams.command || 'echo "Hello World!"'
-    
+
     try {
       // Execute command with real-time stdio streaming
       const { output, exitCode } = await this.executeCommandWithStdio(command)
-      
+
       // Handle tool execution if specified
       if (task.tools && task.tools.length > 0) {
         console.log(chalk.gray(`\n  Using additional tools: ${task.tools.join(', ')}`))
         await this.executeToolCommands(task.tools)
       }
-      
+
       return {
         status: exitCode === 0 ? 'success' : 'failed',
         message: `Single task "${task.name}" completed`,
@@ -170,7 +160,7 @@ export class TaskExecutor {
         output,
         exitCode,
         timestamp: new Date().toISOString(),
-        input: inputParams
+        input: inputParams,
       }
     } catch (error) {
       console.error(chalk.red('  Command execution failed:'), error)
@@ -181,12 +171,9 @@ export class TaskExecutor {
   /**
    * Execute a workflow
    */
-  private async executeWorkflow(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async executeWorkflow(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Executing workflow...'))
-    
+
     const steps = task.workflow || []
     const results: any[] = []
 
@@ -199,29 +186,29 @@ export class TaskExecutor {
         message: `Workflow "${task.name}" completed`,
         output,
         exitCode,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }
     }
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i]
       console.log(chalk.blue(`\n  📌 Step ${i + 1}/${steps.length}: ${step.name || 'Unnamed step'}`))
-      
+
       // Get command from step or use default
       const command = step.command || inputParams[`step${i + 1}_command`] || 'echo "Hello World!"'
-      
+
       try {
         const { output, exitCode } = await this.executeCommandWithStdio(command)
-        
+
         results.push({
           step: i + 1,
           name: step.name,
           command,
           output,
           exitCode,
-          status: exitCode === 0 ? 'completed' : 'failed'
+          status: exitCode === 0 ? 'completed' : 'failed',
         })
-        
+
         if (exitCode !== 0) {
           console.error(chalk.red(`  Step ${i + 1} failed with exit code ${exitCode}`))
           throw new Error(`Step ${i + 1} failed`)
@@ -233,7 +220,7 @@ export class TaskExecutor {
           name: step.name,
           command,
           error: String(error),
-          status: 'failed'
+          status: 'failed',
         })
         throw error
       }
@@ -244,29 +231,27 @@ export class TaskExecutor {
       message: `Workflow "${task.name}" completed`,
       steps_completed: steps.length,
       results,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }
   }
 
   /**
    * Execute a batch task
    */
-  private async executeBatchTask(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async executeBatchTask(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Executing batch task...'))
-    
+
     const batchSize = inputParams.batch_size || 3
-    const batchCommand = task.configuration?.batch_command || inputParams.batch_command || 'echo "Hello World! Item {{index}}"'
-    
+    const batchCommand =
+      task.configuration?.batch_command || inputParams.batch_command || 'echo "Hello World! Item {{index}}"'
+
     console.log(chalk.gray(`  Processing batch of ${batchSize} items...`))
-    
+
     const results = []
     for (let i = 1; i <= batchSize; i++) {
       console.log(chalk.blue(`\n  🔢 Item ${i}/${batchSize}`))
       const command = batchCommand.replace('{{index}}', String(i))
-      
+
       try {
         const { output, exitCode } = await this.executeCommandWithStdio(command)
         results.push({ item: i, output, exitCode, status: exitCode === 0 ? 'success' : 'failed' })
@@ -281,24 +266,24 @@ export class TaskExecutor {
       message: `Batch task "${task.name}" completed`,
       items_processed: batchSize,
       results,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }
   }
 
   /**
    * Execute a report task
    */
-  private async executeReportTask(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async executeReportTask(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Generating report...'))
-    
-    const reportCommand = task.configuration?.report_command || inputParams.report_command || 'echo "Hello World! - Report Generated at $(date)"'
-    
+
+    const reportCommand =
+      task.configuration?.report_command ||
+      inputParams.report_command ||
+      'echo "Hello World! - Report Generated at $(date)"'
+
     try {
       const { output, exitCode } = await this.executeCommandWithStdio(reportCommand)
-      
+
       return {
         status: exitCode === 0 ? 'success' : 'failed',
         message: `Report "${task.name}" generated`,
@@ -306,7 +291,7 @@ export class TaskExecutor {
         command: reportCommand,
         output,
         exitCode,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }
     } catch (error) {
       console.error(chalk.red('  Report generation failed:'), error)
@@ -317,28 +302,25 @@ export class TaskExecutor {
   /**
    * Execute a monitoring task
    */
-  private async executeMonitoringTask(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async executeMonitoringTask(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Running monitoring checks...'))
-    
-    const monitorCommand = task.configuration?.monitor_command || inputParams.monitor_command || 'echo "Hello World! - System Status: OK"'
-    
+
+    const monitorCommand =
+      task.configuration?.monitor_command || inputParams.monitor_command || 'echo "Hello World! - System Status: OK"'
+
     try {
       const { output, exitCode } = await this.executeCommandWithStdio(monitorCommand)
-      
+
       // Simple alert detection based on output
-      const alerts = output?.toLowerCase().includes('error') || 
-                     output?.toLowerCase().includes('fail') || 
-                     exitCode !== 0 ? 1 : 0
-      
+      const alerts =
+        output?.toLowerCase().includes('error') || output?.toLowerCase().includes('fail') || exitCode !== 0 ? 1 : 0
+
       if (alerts > 0) {
         console.log(chalk.red('\n  ⚠️  ALERTS DETECTED!'))
       } else {
         console.log(chalk.green('\n  ✅ All checks passed'))
       }
-      
+
       return {
         status: exitCode === 0 ? 'success' : 'failed',
         message: `Monitoring task "${task.name}" completed`,
@@ -347,7 +329,7 @@ export class TaskExecutor {
         exitCode,
         checks_performed: 1,
         alerts_triggered: alerts,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }
     } catch (error) {
       console.error(chalk.red('  Monitor failed:'), error)
@@ -358,20 +340,15 @@ export class TaskExecutor {
   /**
    * Execute a custom task
    */
-  private async executeCustomTask(
-    task: Task,
-    inputParams: Record<string, any>
-  ): Promise<Record<string, any>> {
+  private async executeCustomTask(task: Task, inputParams: Record<string, any>): Promise<Record<string, any>> {
     console.log(chalk.gray('  Executing custom task...'))
-    
-    const customCommand = task.configuration?.custom_command || 
-                         task.configuration?.command || 
-                         inputParams.command || 
-                         'echo "Hello World!"'
-    
+
+    const customCommand =
+      task.configuration?.custom_command || task.configuration?.command || inputParams.command || 'echo "Hello World!"'
+
     try {
       const { output, exitCode } = await this.executeCommandWithStdio(customCommand)
-      
+
       return {
         status: exitCode === 0 ? 'success' : 'failed',
         message: `Custom task "${task.name}" completed`,
@@ -379,7 +356,7 @@ export class TaskExecutor {
         output,
         exitCode,
         configuration: task.configuration,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }
     } catch (error) {
       console.error(chalk.red('  Custom task failed:'), error)
@@ -392,22 +369,22 @@ export class TaskExecutor {
    */
   private async executeToolCommands(tools: string[]): Promise<any[]> {
     const results = []
-    
+
     for (const tool of tools) {
       console.log(chalk.blue(`\n  🔧 Executing tool: ${tool}`))
-      
+
       // Map tool names to actual commands
       const toolCommand = this.mapToolToCommand(tool)
-      
+
       try {
         const { output, exitCode } = await this.executeCommandWithStdio(toolCommand)
-        
+
         results.push({
           tool,
           command: toolCommand,
           output,
           exitCode,
-          status: exitCode === 0 ? 'success' : 'failed'
+          status: exitCode === 0 ? 'success' : 'failed',
         })
       } catch (error) {
         console.error(chalk.red(`  Tool ${tool} failed:`), error)
@@ -415,11 +392,11 @@ export class TaskExecutor {
           tool,
           command: toolCommand,
           error: String(error),
-          status: 'failed'
+          status: 'failed',
         })
       }
     }
-    
+
     return results
   }
 
@@ -429,17 +406,17 @@ export class TaskExecutor {
   private mapToolToCommand(tool: string): string {
     // Map common tools to commands
     const toolMap: Record<string, string> = {
-      'echo': 'echo "Hello World!"',
-      'date': 'date',
-      'pwd': 'pwd',
-      'ls': 'ls -la',
-      'env': 'env | head -5',
-      'ping': 'ping -c 1 google.com',
-      'curl': 'curl -s https://api.github.com/zen',
-      'node': 'node -e "console.log(\'Hello from Node.js!\')"',
-      'python': 'python3 -c "print(\'Hello from Python!\')"',
+      echo: 'echo "Hello World!"',
+      date: 'date',
+      pwd: 'pwd',
+      ls: 'ls -la',
+      env: 'env | head -5',
+      ping: 'ping -c 1 google.com',
+      curl: 'curl -s https://api.github.com/zen',
+      node: 'node -e "console.log(\'Hello from Node.js!\')"',
+      python: 'python3 -c "print(\'Hello from Python!\')"',
     }
-    
+
     return toolMap[tool.toLowerCase()] || `echo "Tool ${tool} executed"`
   }
 
@@ -450,17 +427,17 @@ export class TaskExecutor {
     return new Promise((resolve, reject) => {
       console.log(chalk.cyan(`  📟 Executing: ${command}`))
       console.log(chalk.gray('  ─'.repeat(30)))
-      
+
       let output = ''
-      
+
       // Use shell to execute the command
       const child = spawn(command, [], {
         shell: true,
-        stdio: ['inherit', 'pipe', 'pipe']
+        stdio: ['inherit', 'pipe', 'pipe'],
       })
 
       // Stream stdout in real-time
-      child.stdout?.on('data', (data) => {
+      child.stdout?.on('data', data => {
         const text = data.toString()
         output += text
         // Write directly to process stdout for real-time display
@@ -468,7 +445,7 @@ export class TaskExecutor {
       })
 
       // Stream stderr in real-time
-      child.stderr?.on('data', (data) => {
+      child.stderr?.on('data', data => {
         const text = data.toString()
         output += text
         // Write directly to process stderr for real-time display
@@ -476,7 +453,7 @@ export class TaskExecutor {
       })
 
       // Handle process exit
-      child.on('close', (code) => {
+      child.on('close', code => {
         console.log(chalk.gray('  ─'.repeat(30)))
         if (code === 0) {
           console.log(chalk.green(`  ✓ Command completed successfully (exit code: ${code})`))
@@ -487,7 +464,7 @@ export class TaskExecutor {
       })
 
       // Handle errors
-      child.on('error', (error) => {
+      child.on('error', error => {
         console.log(chalk.gray('  ─'.repeat(30)))
         console.error(chalk.red(`  ✗ Command error: ${error.message}`))
         reject(error)
@@ -501,14 +478,14 @@ export class TaskExecutor {
   private async updateExecutionStatus(
     executionId: string,
     status: ExecutionStatus,
-    updates: Partial<Execution> = {}
+    updates: Partial<Execution> = {},
   ): Promise<void> {
     const { error } = await this.supabase
       .schema('agents')
       .from('executions')
       .update({
         status,
-        ...updates
+        ...updates,
       })
       .eq('id', executionId)
 
@@ -522,11 +499,11 @@ export class TaskExecutor {
    */
   async handleToolCalls(tools: string[]): Promise<any[]> {
     console.log(chalk.gray(`  Handling ${tools.length} tool calls...`))
-    
+
     if (tools.length === 0) {
       return []
     }
-    
+
     return this.executeToolCommands(tools)
   }
 }

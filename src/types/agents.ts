@@ -5,7 +5,16 @@
 export type TaskStatus = 'active' | 'inactive' | 'archived' | 'draft'
 export type TaskType = 'workflow' | 'single' | 'batch' | 'report' | 'monitoring' | 'integration' | 'custom'
 export type ScheduleType = 'cron' | 'webhook' | 'event' | 'manual' | 'interval' | 'once'
-export type ExecutionStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout' | 'retrying' | 'skipped'
+export type ExecutionStatus =
+  | 'pending'
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'timeout'
+  | 'retrying'
+  | 'skipped'
 export type ExecutionTrigger = 'manual' | 'scheduled' | 'webhook' | 'event' | 'api' | 'retry' | 'test'
 export type DestinationStatus = 'online' | 'offline' | 'busy' | 'maintenance' | 'error'
 
