@@ -1,4 +1,11 @@
-## [1.2.0] - 2025-08-21
+## [1.2.1] - 2025-08-27
+
+### Changes
+
+- fix: improve realtime subscription debugging for execution detection (158b972)
+- fix: lint (409ac08)
+- Merge branch 'main' of https://github.com/veas-org/veas-cli (d2a2b96)
+
 
 ### Changes
 
