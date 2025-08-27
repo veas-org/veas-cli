@@ -16,7 +16,7 @@ vi.mock('../utils/logger', () => ({
 }))
 vi.mock('util', () => ({
   promisify: vi.fn(fn => {
-    return (...args: any[]) => {
+    return (...args: unknown[]) => {
       return new Promise((resolve, reject) => {
         const callback = args[args.length - 1]
         if (typeof callback === 'function') {
@@ -37,7 +37,7 @@ global.fetch = vi.fn()
 
 describe('OAuthDeviceFlow', () => {
   let deviceFlow: OAuthDeviceFlow
-  let mockSpinner: any
+  let mockSpinner: unknown
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -70,7 +70,7 @@ describe('OAuthDeviceFlow', () => {
 
     it('should default to veas.app if no URL provided', () => {
       const originalEnv = process.env.VEAS_API_URL
-      delete process.env.VEAS_API_URL
+      process.env.VEAS_API_URL = undefined
       const flow = new OAuthDeviceFlow()
       expect(flow.apiUrl).toBe('https://veas.app')
       if (originalEnv) process.env.VEAS_API_URL = originalEnv
@@ -315,8 +315,8 @@ describe('OAuthDeviceFlow', () => {
       expect(logger.info).toHaveBeenCalled()
       // Check that at least one call contains the expected text (accounting for color codes)
       const infoCalls = vi.mocked(logger.info).mock.calls
-      const hasAuthMessage = infoCalls.some(
-        call => call[0] && call[0].toString().includes('Please visit this URL to authenticate:'),
+      const hasAuthMessage = infoCalls.some(call =>
+        call[0]?.toString().includes('Please visit this URL to authenticate:'),
       )
       expect(hasAuthMessage).toBe(true)
 

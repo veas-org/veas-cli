@@ -1,0 +1,1 @@
+- never create migration files manually

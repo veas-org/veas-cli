@@ -167,9 +167,9 @@ export async function testMCPConnection(): Promise<void> {
     if (tools.length > 0) {
       console.log('')
       console.log(pc.bold('Sample tools:'))
-      tools.slice(0, 5).forEach((tool: { name: string; description: string }) => {
+      for (const tool of tools.slice(0, 5)) {
         console.log(`  - ${pc.cyan(tool.name)}: ${tool.description}`)
-      })
+      }
       if (tools.length > 5) {
         console.log(`  ... and ${tools.length - 5} more`)
       }
@@ -297,9 +297,9 @@ export async function listProjects(options?: { limit?: number; offset?: number }
     if (projects.length === 0) {
       logger.info(pc.yellow('No projects found'))
     } else {
-      projects.forEach((project: { name: string; description?: string }) => {
+      for (const project of projects) {
         logger.info(`- ${pc.cyan(project.name)}: ${project.description || 'No description'}`)
-      })
+      }
     }
   } catch (error) {
     s.stop(pc.red('Failed'))
@@ -409,9 +409,9 @@ export async function testDirectMCP(): Promise<void> {
     s.stop(pc.green(`✓ Direct MCP test successful! Found ${tools.length} tools`))
 
     logger.info(pc.cyan('Available tools:'))
-    tools.slice(0, 5).forEach((tool: any) => {
+    for (const tool of tools.slice(0, 5)) {
       logger.info(`  - ${tool.name}: ${tool.description}`)
-    })
+    }
     if (tools.length > 5) {
       logger.info(`  ... and ${tools.length - 5} more`)
     }

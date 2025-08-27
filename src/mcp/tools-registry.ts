@@ -91,8 +91,8 @@ export async function getMCPTools(tokenOrAuthToken?: string | AuthToken): Promis
     }
 
     return []
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
+  } catch (error: unknown) {
+    if ((error instanceof Error ? error : new Error(String(error))).name === 'AbortError') {
       throw new Error('Request timeout - MCP server took too long to respond')
     }
     throw error

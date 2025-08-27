@@ -27,6 +27,7 @@ interface AgentOptions {
   heartbeatInterval?: string
   capabilities?: string
   debug?: boolean
+  verbose?: boolean
 }
 
 /**
@@ -47,7 +48,11 @@ export async function startAgent(options: AgentOptions): Promise<void> {
 
     // Get Supabase configuration
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // Use service role key if available for agent operations (bypasses RLS)
+    const supabaseAnonKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
       spinner.fail(
@@ -71,11 +76,11 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     }
 
     // Parse capabilities
-    let capabilities: Record<string, any> = {}
+    let capabilities: Record<string, unknown> = {}
     if (options.capabilities) {
       try {
         capabilities = JSON.parse(options.capabilities)
-      } catch (error) {
+      } catch (_error) {
         spinner.warn('Invalid capabilities JSON, using defaults')
       }
     }
@@ -139,6 +144,11 @@ export async function startAgent(options: AgentOptions): Promise<void> {
     console.log(chalk.green(`Destination ID: ${destinationId}`))
     console.log(chalk.green(`Organization: ${organizationId}`))
     if (options.name) console.log(chalk.green(`Agent name: ${options.name}`))
+    if (options.verbose) {
+      console.log(chalk.yellow(`Verbose mode: ENABLED`))
+      console.log(chalk.gray(`[VERBOSE] Supabase URL: ${supabaseUrl}`))
+      console.log(chalk.gray(`[VERBOSE] Session User ID: ${session.user?.id}`))
+    }
 
     // Create MCP client
     const mcpClient = new MCPClient(process.env.VEAS_API_URL || 'http://localhost:3000')
@@ -152,6 +162,7 @@ export async function startAgent(options: AgentOptions): Promise<void> {
       heartbeatIntervalMs: parseInt(options.heartbeatInterval || '30000', 10),
       supabaseUrl,
       supabaseAnonKey,
+      verbose: options.verbose || false,
     }
 
     // Create task executor
@@ -165,12 +176,56 @@ export async function startAgent(options: AgentOptions): Promise<void> {
 
     // Create realtime service
     const realtimeService = new RealtimeService(realtimeConfig, async (execution: TaskExecution) => {
-      console.log(chalk.blue(`\n📋 New task assigned: ${execution.id}`))
-      console.log(chalk.gray(`Task ID: ${execution.taskId}`))
-      console.log(chalk.gray(`Trigger: ${execution.trigger}`))
+      console.log(chalk.blue(`\n${'='.repeat(60)}`))
+      console.log(chalk.blue(`📋 NEW TASK EXECUTION REQUEST`))
+      console.log(chalk.blue(`   Execution ID: ${execution.id}`))
+      console.log(chalk.blue(`   Task ID: ${execution.taskId}`))
+      console.log(chalk.blue(`   Trigger: ${execution.trigger}`))
+      console.log(chalk.blue(`   Time: ${new Date().toLocaleTimeString()}`))
+      console.log(chalk.blue(`${'='.repeat(60)}\n`))
 
-      // Execute the task
-      await taskExecutor.executeTask(execution)
+      if (options.verbose) {
+        console.log(chalk.gray('[VERBOSE] Full execution object:'))
+        console.log(chalk.gray(JSON.stringify(execution, null, 2)))
+      }
+
+      // Automatically start executing the task command
+      try {
+        if (options.verbose) {
+          console.log(chalk.gray('[VERBOSE] Creating task executor...'))
+        }
+
+        // Create a simple task executor that handles command execution
+        const simpleTaskExecutor = new (await import('../services/task-executor.js')).TaskExecutor(
+          createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+              headers: {
+                Authorization: `Bearer ${session.token}`,
+              },
+            },
+          }),
+          destinationId,
+          organizationId,
+        )
+
+        if (options.verbose) {
+          console.log(chalk.gray(`[VERBOSE] Executing task with ID: ${execution.id}`))
+        }
+
+        // Execute the task using the simple executor which handles commands directly
+        await simpleTaskExecutor.executeTask(execution.id)
+      } catch (error) {
+        console.error(chalk.red('Failed to execute task:'), error)
+
+        // Update task status to failed
+        await realtimeService.updateExecutionStatus(execution.id, 'failed', {
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorDetails: {
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+          completedAt: new Date().toISOString(),
+        } as any)
+      }
     })
 
     // Set the realtime service in task executor
@@ -210,8 +265,8 @@ export async function startAgent(options: AgentOptions): Promise<void> {
 
     // Keep the process running
     await new Promise(() => {})
-  } catch (error: any) {
-    spinner.fail(`Failed to start agent: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to start agent: ${error instanceof Error ? error.message : String(error)}`)
 
     if (options.debug) {
       console.error(error)
@@ -257,8 +312,8 @@ export async function agentStatus(_options: any): Promise<void> {
     // TODO: Query agent destinations table to show status
     spinner.succeed('Agent status check complete')
     console.log(chalk.yellow('Status display not yet implemented'))
-  } catch (error: any) {
-    spinner.fail(`Failed to check agent status: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to check agent status: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 }
@@ -282,8 +337,8 @@ export async function listAgents(_options: any): Promise<void> {
     // TODO: Query agent destinations table to list agents
     spinner.succeed('Agents fetched')
     console.log(chalk.yellow('Agent listing not yet implemented'))
-  } catch (error: any) {
-    spinner.fail(`Failed to list agents: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to list agents: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 }

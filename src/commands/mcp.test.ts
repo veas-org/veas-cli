@@ -26,16 +26,16 @@ vi.mock('../mcp/mcp-client.js', () => ({
 global.fetch = vi.fn()
 
 describe('MCP Commands', () => {
-  let mockAuthManager: any
-  let mockSpinner: any
-  let consoleLogSpy: any
-  let processExitSpy: any
+  let mockAuthManager: unknown
+  let mockSpinner: unknown
+  let _consoleLogSpy: any
+  let _processExitSpy: any
 
   beforeEach(() => {
     vi.clearAllMocks()
 
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+    _consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    _processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called')
     })
 

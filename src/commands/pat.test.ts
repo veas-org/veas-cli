@@ -24,7 +24,7 @@ vi.mock('@clack/prompts')
 global.fetch = vi.fn()
 
 describe('PAT Commands', () => {
-  let mockAuthManager: any
+  let mockAuthManager: unknown
 
   beforeEach(() => {
     mockAuthManager = {

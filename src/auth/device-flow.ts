@@ -90,7 +90,7 @@ export class OAuthDeviceFlow {
             scope: tokenData.scope,
             has_user: !!(tokenData as any).user,
             user: (tokenData as any).user,
-            access_token_prefix: tokenData.access_token ? tokenData.access_token.substring(0, 10) + '...' : 'none',
+            access_token_prefix: tokenData.access_token ? `${tokenData.access_token.substring(0, 10)}...` : 'none',
           })
 
           // Ensure user is passed through

@@ -44,7 +44,7 @@ vi.mock('@modelcontextprotocol/sdk/types.js', () => ({
 
 describe('MCPServer', () => {
   let server: MCPServer
-  let mockAuthManager: any
+  let mockAuthManager: unknown
   let mockCacheManager: any
 
   beforeEach(() => {

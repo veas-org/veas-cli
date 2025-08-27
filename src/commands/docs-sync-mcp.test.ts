@@ -30,20 +30,20 @@ vi.mock('../mcp/mcp-client', () => ({
 }))
 
 // Mock process.exit to not actually exit
-const mockExit = vi.spyOn(process, 'exit').mockImplementation(code => {
+const _mockExit = vi.spyOn(process, 'exit').mockImplementation(code => {
   throw new Error(`process.exit(${code})`)
 })
 
 describe('DocsSync Command', () => {
-  let mockAuthManager: any
-  let mockSpinner: any
-  let consoleLogSpy: any
+  let mockAuthManager: unknown
+  let mockSpinner: unknown
+  let _consoleLogSpy: any
   let mockConfigParser: any
 
   beforeEach(() => {
     vi.clearAllMocks()
 
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    _consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Mock stdout.isTTY
     Object.defineProperty(process.stdout, 'isTTY', {
@@ -103,7 +103,7 @@ describe('DocsSync Command', () => {
     mockMCPClient.initialize.mockResolvedValue(undefined)
 
     // Set up default successful responses for common MCP calls
-    mockMCPClient.callToolSafe.mockImplementation((toolName, params) => {
+    mockMCPClient.callToolSafe.mockImplementation((toolName, _params) => {
       // Return appropriate data for specific tools
       if (toolName === 'mcp-articles_list_publications') {
         return Promise.resolve({

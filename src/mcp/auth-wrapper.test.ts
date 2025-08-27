@@ -16,9 +16,9 @@ vi.mock('../auth/auth-manager.js', () => ({
 describe('auth-wrapper', () => {
   beforeEach(() => {
     // Clear environment variables
-    delete process.env.VEAS_PAT
-    delete process.env.PAT
-    delete process.env.MCP_TOKEN
+    process.env.VEAS_PAT = undefined
+    process.env.PAT = undefined
+    process.env.MCP_TOKEN = undefined
     vi.clearAllMocks()
   })
 

@@ -1,29 +1,32 @@
 /**
- * Realtime Service
+ * Task Detection Service
  *
- * Manages Supabase Realtime subscriptions for task execution events
+ * Polls for task execution events and handles task assignments
  */
 
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '../utils/logger.js'
 import type { AgentConfig, TaskExecution } from './types.js'
 
 export class RealtimeService {
   private supabase: any
-  private channel: RealtimeChannel | null = null
   private destinationId: string | null = null
   private onTaskAssigned: (execution: TaskExecution) => void
-  private reconnectAttempts = 0
-  private maxReconnectAttempts = 10
-  private reconnectDelay = 1000
+  private verbose: boolean = false
 
   constructor(config: AgentConfig, onTaskAssigned: (execution: TaskExecution) => void) {
     this.onTaskAssigned = onTaskAssigned
+    this.verbose = config.verbose || false
 
     // Initialize Supabase client
     if (!config.supabaseUrl || !config.supabaseAnonKey) {
       throw new Error('Supabase URL and anon key are required for realtime service')
+    }
+
+    if (this.verbose) {
+      logger.info(`[VERBOSE] Initializing Supabase client:`)
+      logger.info(`[VERBOSE]   URL: ${config.supabaseUrl}`)
+      logger.info(`[VERBOSE]   Organization: ${config.organizationId}`)
     }
 
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
@@ -44,7 +47,10 @@ export class RealtimeService {
    */
   setDestinationId(destinationId: string) {
     this.destinationId = destinationId
-    logger.debug(`Destination ID set: ${destinationId}`)
+    logger.info(`Destination ID set: ${destinationId}`)
+    if (this.verbose) {
+      logger.info(`[VERBOSE] Agent ready to poll for tasks with destination: ${destinationId}`)
+    }
   }
 
   /**
@@ -55,57 +61,21 @@ export class RealtimeService {
       throw new Error('Destination ID must be set before starting realtime service')
     }
 
-    logger.info('Starting realtime service...')
+    logger.info('Starting task detection service...')
 
     try {
-      // Create a channel for task executions
-      this.channel = this.supabase
-        .channel('agent-executions')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'agents',
-            table: 'executions',
-            filter: `destination_id=eq.${this.destinationId}`,
-          },
-          (payload: RealtimePostgresChangesPayload<TaskExecution>) => {
-            this.handleExecutionChange(payload)
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'agents',
-            table: 'executions',
-            filter: `status=eq.pending`,
-          },
-          (payload: RealtimePostgresChangesPayload<TaskExecution>) => {
-            // Also listen for unassigned tasks that we might be able to claim
-            const newTask = payload.new as any
-            if (newTask && !newTask.destination_id) {
-              this.handlePendingTask(newTask as TaskExecution)
-            }
-          },
-        )
-        .subscribe((status: any) => {
-          if (status === 'SUBSCRIBED') {
-            logger.info('Successfully subscribed to realtime events')
-            this.reconnectAttempts = 0
-          } else if (status === 'CHANNEL_ERROR') {
-            logger.error('Channel error, attempting to reconnect...')
-            this.handleReconnect()
-          } else if (status === 'TIMED_OUT') {
-            logger.error('Subscription timed out, attempting to reconnect...')
-            this.handleReconnect()
-          }
-        })
+      // Try to set up realtime subscriptions
+      const subscriptionSuccess = await this.setupRealtimeSubscriptions()
 
-      // Also listen for task assignments via polling (fallback)
+      if (!subscriptionSuccess) {
+        logger.warn('Realtime subscriptions failed, falling back to polling-only mode')
+      }
+
+      // Always start polling as a backup mechanism
+      logger.info('Starting polling for task detection (backup mechanism)')
       this.startPolling()
     } catch (error) {
-      logger.error('Failed to start realtime service:', error)
+      logger.error('Failed to start task detection service:', error)
       throw error
     }
   }
@@ -114,39 +84,128 @@ export class RealtimeService {
    * Stop the realtime service
    */
   async stop(): Promise<void> {
-    logger.info('Stopping realtime service...')
-
-    if (this.channel) {
-      await this.supabase.removeChannel(this.channel)
-      this.channel = null
-    }
-
+    logger.info('Stopping task detection service...')
     this.stopPolling()
+
+    // Unsubscribe from all realtime channels
+    if (this.channels) {
+      for (const channel of this.channels) {
+        await this.supabase.removeChannel(channel)
+      }
+      this.channels = []
+    }
   }
 
+  private channels: any[] = []
+
   /**
-   * Handle execution change events
+   * Set up realtime subscriptions for instant task detection
    */
-  private handleExecutionChange(payload: RealtimePostgresChangesPayload<TaskExecution>) {
-    const { eventType, new: newRecord, old: oldRecord } = payload
+  private async setupRealtimeSubscriptions(): Promise<boolean> {
+    try {
+      logger.info('Setting up realtime subscriptions...')
 
-    logger.debug(`Execution change event: ${eventType}`, {
-      executionId: (newRecord as any)?.id || (oldRecord as any)?.id,
-    })
+      // Subscribe to executions assigned to this destination
+      const assignedChannel = this.supabase
+        .channel(`agent-executions-${this.destinationId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'agents',
+            table: 'executions',
+            filter: `destination_id=eq.${this.destinationId}`,
+          },
+          async (payload: any) => {
+            if (this.verbose) {
+              logger.info(`[VERBOSE] Realtime event (assigned): ${payload.eventType}`)
+              logger.info(`[VERBOSE] Payload:`, JSON.stringify(payload, null, 2))
+            }
 
-    if (eventType === 'INSERT' || eventType === 'UPDATE') {
-      const execution = newRecord as any
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const execution = payload.new
+              if (execution && (execution.status === 'pending' || execution.status === 'queued')) {
+                logger.info(`🎯 Realtime: New assigned execution detected: ${execution.id}`)
 
-      // Check if this is a new assignment for us
-      if (
-        execution &&
-        execution.status === 'pending' &&
-        execution.destination_id === this.destinationId &&
-        !execution.claimed_at
-      ) {
-        logger.info(`New task assigned: ${execution.id}`)
-        this.onTaskAssigned(execution as TaskExecution)
-      }
+                // Map to TaskExecution format
+                const taskExecution: TaskExecution = {
+                  id: execution.id,
+                  taskId: execution.task_id,
+                  trigger: execution.trigger || 'manual',
+                  status: execution.status,
+                  queuedAt: execution.queued_at,
+                  startedAt: execution.started_at,
+                  completedAt: execution.completed_at,
+                  inputParams: execution.input_params || {},
+                  outputResult: execution.output_result,
+                  errorMessage: execution.error_message,
+                  executionLogs: execution.execution_logs || [],
+                  toolCalls: execution.tool_calls || [],
+                  retryCount: execution.retry_count || 0,
+                  context: execution.context || {},
+                }
+
+                this.onTaskAssigned(taskExecution)
+              }
+            }
+          },
+        )
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            logger.info('✅ Subscribed to assigned executions (realtime)')
+          } else {
+            logger.warn(`⚠️ Subscription status for assigned executions: ${status}`)
+          }
+        })
+
+      this.channels.push(assignedChannel)
+
+      // Subscribe to unassigned executions (for claiming)
+      const unassignedChannel = this.supabase
+        .channel(`agent-unassigned-${this.destinationId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'agents',
+            table: 'executions',
+          },
+          async (payload: any) => {
+            const execution = payload.new
+            if (this.verbose) {
+              logger.info(`[VERBOSE] Realtime event (unassigned): INSERT`)
+              logger.info(`[VERBOSE] Execution destination: ${execution?.destination_id || 'none'}`)
+            }
+
+            // Only process if unassigned
+            if (
+              execution &&
+              !execution.destination_id &&
+              (execution.status === 'pending' || execution.status === 'queued')
+            ) {
+              logger.info(`🔍 Realtime: New unassigned execution detected: ${execution.id}`)
+              await this.handlePendingTask(execution)
+            }
+          },
+        )
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            logger.info('✅ Subscribed to unassigned executions (realtime)')
+          } else {
+            logger.warn(`⚠️ Subscription status for unassigned executions: ${status}`)
+          }
+        })
+
+      this.channels.push(unassignedChannel)
+
+      // Wait a moment to ensure subscriptions are established
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      logger.info('✅ Realtime subscriptions set up successfully')
+      return true
+    } catch (error) {
+      logger.error('Failed to set up realtime subscriptions:', error)
+      return false
     }
   }
 
@@ -184,39 +243,20 @@ export class RealtimeService {
   }
 
   /**
-   * Handle reconnection logic
-   */
-  private async handleReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      logger.error('Max reconnection attempts reached. Giving up.')
-      return
-    }
-
-    this.reconnectAttempts++
-    const delay = this.reconnectDelay * 2 ** (this.reconnectAttempts - 1)
-
-    logger.info(
-      `Attempting to reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`,
-    )
-
-    setTimeout(async () => {
-      if (this.channel) {
-        await this.supabase.removeChannel(this.channel)
-      }
-      await this.start()
-    }, delay)
-  }
-
-  /**
    * Polling fallback for environments where realtime might not work
    */
   private pollingInterval: NodeJS.Timeout | null = null
 
   private startPolling() {
-    // Poll every 5 seconds for new tasks
+    logger.info(`Starting polling for destination: ${this.destinationId}`)
+
+    // Poll every 2 seconds for new tasks (faster response time)
     this.pollingInterval = setInterval(async () => {
       await this.pollForTasks()
-    }, 5000) as unknown as NodeJS.Timeout
+    }, 2000) as unknown as NodeJS.Timeout
+
+    // Also poll immediately on start
+    this.pollForTasks()
   }
 
   private stopPolling() {
@@ -228,7 +268,131 @@ export class RealtimeService {
 
   private async pollForTasks() {
     try {
-      // Check for tasks assigned to us
+      if (this.verbose) {
+        logger.info(`[VERBOSE] Polling for tasks - Destination ID: ${this.destinationId}`)
+      }
+
+      // First check the agents schema for executions
+      const query = this.supabase
+        .schema('agents')
+        .from('executions')
+        .select('*')
+        .or(`destination_id.eq.${this.destinationId},destination_id.is.null`)
+        .in('status', ['pending', 'queued'])
+        .limit(10)
+
+      if (this.verbose) {
+        logger.info(
+          `[VERBOSE] Query: agents.executions WHERE (destination_id='${this.destinationId}' OR destination_id IS NULL) AND status IN ('pending', 'queued')`,
+        )
+      }
+
+      const { data: agentExecutions, error: agentError } = await query
+
+      if (agentError) {
+        logger.error('Error querying agents.executions:', agentError.message)
+        if (this.verbose) {
+          logger.error('[VERBOSE] Full error:', agentError)
+        }
+      } else {
+        if (this.verbose) {
+          logger.info(`[VERBOSE] Query returned ${agentExecutions?.length || 0} executions`)
+          if (agentExecutions && agentExecutions.length > 0) {
+            logger.info('[VERBOSE] Executions found:', JSON.stringify(agentExecutions, null, 2))
+          }
+        }
+
+        if (agentExecutions?.length > 0) {
+          logger.info(`Found ${agentExecutions.length} executions in agents schema`)
+          for (const execution of agentExecutions) {
+            if (this.verbose) {
+              logger.info(`[VERBOSE] Processing execution:`)
+              logger.info(`[VERBOSE]   ID: ${execution.id}`)
+              logger.info(`[VERBOSE]   Task ID: ${execution.task_id}`)
+              logger.info(`[VERBOSE]   Status: ${execution.status}`)
+              logger.info(`[VERBOSE]   Destination: ${execution.destination_id}`)
+              logger.info(`[VERBOSE]   Claimed at: ${execution.claimed_at}`)
+            }
+
+            // Check if this execution needs to be claimed
+            if (!execution.destination_id || execution.destination_id === this.destinationId) {
+              // Try to claim the execution if it's not already claimed
+              if (!execution.claimed_at) {
+                const { data: claimedExecution, error: claimError } = await this.supabase
+                  .schema('agents')
+                  .from('executions')
+                  .update({
+                    destination_id: this.destinationId,
+                    claimed_at: new Date().toISOString(),
+                  })
+                  .eq('id', execution.id)
+                  .is('claimed_at', null)
+                  .select()
+                  .single()
+
+                if (!claimError && claimedExecution) {
+                  logger.info(`Successfully claimed execution: ${execution.id}`)
+                  if (this.verbose) {
+                    logger.info('[VERBOSE] Claimed execution details:', JSON.stringify(claimedExecution, null, 2))
+                  }
+                  // Map the execution to the expected format
+                  const taskExecution: TaskExecution = {
+                    id: claimedExecution.id,
+                    taskId: claimedExecution.task_id,
+                    trigger: claimedExecution.trigger || 'manual',
+                    status: claimedExecution.status,
+                    queuedAt: claimedExecution.queued_at,
+                    startedAt: claimedExecution.started_at,
+                    completedAt: claimedExecution.completed_at,
+                    inputParams: claimedExecution.input_params || {},
+                    outputResult: claimedExecution.output_result,
+                    errorMessage: claimedExecution.error_message,
+                    executionLogs: claimedExecution.execution_logs || [],
+                    toolCalls: claimedExecution.tool_calls || [],
+                    retryCount: claimedExecution.retry_count || 0,
+                    context: claimedExecution.context || {},
+                  }
+                  if (this.verbose) {
+                    logger.info(
+                      '[VERBOSE] Calling onTaskAssigned with TaskExecution:',
+                      JSON.stringify(taskExecution, null, 2),
+                    )
+                  }
+                  this.onTaskAssigned(taskExecution)
+                } else if (claimError) {
+                  logger.debug(`Could not claim execution ${execution.id}: ${claimError.message}`)
+                }
+              } else if (execution.destination_id === this.destinationId) {
+                // Already assigned to us and claimed, trigger execution anyway
+                logger.info(`Execution ${execution.id} already assigned to us, processing...`)
+                const taskExecution: TaskExecution = {
+                  id: execution.id,
+                  taskId: execution.task_id,
+                  trigger: execution.trigger || 'manual',
+                  status: execution.status,
+                  queuedAt: execution.queued_at,
+                  startedAt: execution.started_at,
+                  completedAt: execution.completed_at,
+                  inputParams: execution.input_params || {},
+                  outputResult: execution.output_result,
+                  errorMessage: execution.error_message,
+                  executionLogs: execution.execution_logs || [],
+                  toolCalls: execution.tool_calls || [],
+                  retryCount: execution.retry_count || 0,
+                  context: execution.context || {},
+                }
+                this.onTaskAssigned(taskExecution)
+              }
+            }
+          }
+        }
+      }
+
+      // Fallback: Check the default schema for executions (if different table structure)
+      if (this.verbose) {
+        logger.info(`[VERBOSE] Checking fallback: default schema executions table`)
+      }
+
       const { data: assignedTasks, error: assignedError } = await this.supabase
         .from('executions')
         .select('*')
@@ -236,6 +400,14 @@ export class RealtimeService {
         .eq('status', 'pending')
         .is('claimed_at', null)
         .limit(10)
+
+      if (assignedError) {
+        if (this.verbose) {
+          logger.info(`[VERBOSE] Fallback query error: ${assignedError.message}`)
+        }
+      } else if (this.verbose) {
+        logger.info(`[VERBOSE] Fallback query returned ${assignedTasks?.length || 0} tasks`)
+      }
 
       if (!assignedError && assignedTasks?.length > 0) {
         for (const task of assignedTasks) {
@@ -282,7 +454,9 @@ export class RealtimeService {
     updates: Partial<TaskExecution> = {},
   ): Promise<void> {
     try {
-      const { error } = await this.supabase
+      // Try to update in agents schema first
+      const { error: agentsError } = await this.supabase
+        .schema('agents')
         .from('executions')
         .update({
           status,
@@ -292,9 +466,22 @@ export class RealtimeService {
         })
         .eq('id', executionId)
 
-      if (error) {
-        logger.error(`Failed to update execution status: ${error.message}`)
-        throw error
+      if (agentsError) {
+        // Fallback to default schema
+        const { error } = await this.supabase
+          .from('executions')
+          .update({
+            status,
+            ...updates,
+            ...(status === 'running' && !(updates as any).started_at ? { started_at: new Date().toISOString() } : {}),
+            ...(status === 'completed' || status === 'failed' ? { completed_at: new Date().toISOString() } : {}),
+          })
+          .eq('id', executionId)
+
+        if (error) {
+          logger.error(`Failed to update execution status: ${error.message}`)
+          throw error
+        }
       }
     } catch (error) {
       logger.error('Error updating execution status:', error)
@@ -309,19 +496,37 @@ export class RealtimeService {
     executionId: string,
     level: 'debug' | 'info' | 'warning' | 'error',
     message: string,
-    data?: Record<string, any>,
+    data?: Record<string, unknown>,
   ): Promise<void> {
     try {
-      // Get current logs
-      const { data: execution, error: fetchError } = await this.supabase
+      // Try agents schema first
+      let execution: any = null
+      let useAgentsSchema = true
+
+      const { data: agentsExecution, error: agentsFetchError } = await this.supabase
+        .schema('agents')
         .from('executions')
         .select('execution_logs')
         .eq('id', executionId)
         .single()
 
-      if (fetchError) {
-        logger.error(`Failed to fetch execution: ${fetchError.message}`)
-        return
+      if (!agentsFetchError && agentsExecution) {
+        execution = agentsExecution
+      } else {
+        // Fallback to default schema
+        const { data: defaultExecution, error: defaultFetchError } = await this.supabase
+          .from('executions')
+          .select('execution_logs')
+          .eq('id', executionId)
+          .single()
+
+        if (!defaultFetchError && defaultExecution) {
+          execution = defaultExecution
+          useAgentsSchema = false
+        } else {
+          logger.error(`Failed to fetch execution: ${agentsFetchError?.message || defaultFetchError?.message}`)
+          return
+        }
       }
 
       const logs = execution?.execution_logs || []
@@ -332,14 +537,26 @@ export class RealtimeService {
         data,
       })
 
-      // Update logs
-      const { error: updateError } = await this.supabase
-        .from('executions')
-        .update({ execution_logs: logs })
-        .eq('id', executionId)
+      // Update logs in the correct schema
+      if (useAgentsSchema) {
+        const { error: updateError } = await this.supabase
+          .schema('agents')
+          .from('executions')
+          .update({ execution_logs: logs })
+          .eq('id', executionId)
 
-      if (updateError) {
-        logger.error(`Failed to add execution log: ${updateError.message}`)
+        if (updateError) {
+          logger.error(`Failed to add execution log: ${updateError.message}`)
+        }
+      } else {
+        const { error: updateError } = await this.supabase
+          .from('executions')
+          .update({ execution_logs: logs })
+          .eq('id', executionId)
+
+        if (updateError) {
+          logger.error(`Failed to add execution log: ${updateError.message}`)
+        }
       }
     } catch (error) {
       logger.error('Error adding execution log:', error)

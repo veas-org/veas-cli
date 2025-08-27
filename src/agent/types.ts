@@ -11,7 +11,7 @@ export interface AgentDestination {
   hostname: string
   machineId?: string
   cliVersion?: string
-  capabilities: Record<string, any>
+  capabilities: Record<string, unknown>
   supportedTools: string[]
   resourceLimits: {
     maxConcurrentTasks?: number
@@ -23,7 +23,7 @@ export interface AgentDestination {
   registeredAt: string
   maxConcurrentTasks: number
   allowedTaskTypes: string[]
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   tags: string[]
   isActive: boolean
 }
@@ -37,10 +37,10 @@ export interface TaskExecution {
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
   trigger: 'manual' | 'scheduled' | 'webhook' | 'event'
   triggerSource?: string
-  inputParams: Record<string, any>
-  outputResult?: Record<string, any>
+  inputParams: Record<string, unknown>
+  outputResult?: Record<string, unknown>
   errorMessage?: string
-  errorDetails?: Record<string, any>
+  errorDetails?: Record<string, unknown>
   queuedAt: string
   startedAt?: string
   completedAt?: string
@@ -55,7 +55,7 @@ export interface TaskExecution {
   toolCalls: ToolCall[]
   retryCount: number
   parentExecutionId?: string
-  context: Record<string, any>
+  context: Record<string, unknown>
 }
 
 export interface Task {
@@ -69,10 +69,10 @@ export interface Task {
   status: 'draft' | 'active' | 'paused' | 'archived'
   configuration: TaskConfiguration
   tools: string[]
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   workflow: WorkflowStep[]
-  inputSchema?: Record<string, any>
-  outputSchema?: Record<string, any>
+  inputSchema?: Record<string, unknown>
+  outputSchema?: Record<string, unknown>
   maxRetries: number
   timeoutSeconds: number
   maxExecutionsPerDay?: number
@@ -86,7 +86,7 @@ export interface Task {
 export interface TaskConfiguration {
   workflow?: WorkflowStep[]
   tools?: string[]
-  parameters?: Record<string, any>
+  parameters?: Record<string, unknown>
   retryPolicy?: {
     maxAttempts: number
     backoffSeconds: number
@@ -101,7 +101,7 @@ export interface WorkflowStep {
   name: string
   type: 'tool' | 'condition' | 'loop' | 'parallel' | 'transform'
   tool?: string
-  params?: Record<string, any>
+  params?: Record<string, unknown>
   condition?: {
     type: 'expression' | 'comparison'
     expression?: string
@@ -119,13 +119,13 @@ export interface ExecutionLog {
   timestamp: string
   level: 'debug' | 'info' | 'warning' | 'error'
   message: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 }
 
 export interface ToolCall {
   id: string
   tool: string
-  params: Record<string, any>
+  params: Record<string, unknown>
   startedAt: string
   completedAt?: string
   durationMs?: number
@@ -149,13 +149,14 @@ export interface HeartbeatData {
 export interface AgentConfig {
   name: string
   organizationId: string
-  capabilities?: Record<string, any>
+  capabilities?: Record<string, unknown>
   supportedTools?: string[]
   maxConcurrentTasks?: number
   heartbeatIntervalMs?: number
   apiKey?: string
   supabaseUrl?: string
   supabaseAnonKey?: string
+  verbose?: boolean
 }
 
 export interface RealtimeMessage {

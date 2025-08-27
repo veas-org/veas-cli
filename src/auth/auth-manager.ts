@@ -64,7 +64,7 @@ export class AuthManager {
     const cipher = crypto.createCipheriv('aes-256-cbc', this.encryptionKey, iv)
     let encrypted = cipher.update(text, 'utf8', 'hex')
     encrypted += cipher.final('hex')
-    return iv.toString('hex') + ':' + encrypted
+    return `${iv.toString('hex')}:${encrypted}`
   }
 
   private decrypt(text: string): string {
@@ -109,7 +109,7 @@ export class AuthManager {
 
       logger.debug('Login successful', { userId: user.id })
       return { user, token }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message
         throw new Error(`Authentication failed: ${message}`)
@@ -146,7 +146,7 @@ export class AuthManager {
 
       logger.debug('PAT login successful', { userId: user.id })
       return { user, token: pat }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message
         throw new Error(`Token validation failed: ${message}`)
@@ -158,18 +158,19 @@ export class AuthManager {
   async loginWithDeviceCode(tokenResponse?: any): Promise<{ user: User; token: string }> {
     try {
       // If no token response provided, perform the device flow
-      if (!tokenResponse) {
+      let authTokenResponse = tokenResponse
+      if (!authTokenResponse) {
         const deviceFlow = new OAuthDeviceFlow(this.apiUrl)
-        tokenResponse = await deviceFlow.authenticate()
+        authTokenResponse = await deviceFlow.authenticate()
       }
 
       // Try to get user info from the token response or validate endpoint
       let user: User
 
       // Check if user info is included in the token response
-      if (tokenResponse.user) {
-        logger.debug('Using user info from token response:', tokenResponse.user)
-        user = tokenResponse.user
+      if (authTokenResponse.user) {
+        logger.debug('Using user info from token response:', authTokenResponse.user)
+        user = authTokenResponse.user
       } else {
         logger.debug('No user info in token response, will try to fetch it')
         // Try to validate the token and get user info
@@ -180,25 +181,25 @@ export class AuthManager {
             {},
             {
               headers: {
-                Authorization: `Bearer ${tokenResponse.access_token}`,
+                Authorization: `Bearer ${authTokenResponse.access_token}`,
                 'Content-Type': 'application/json',
               },
             },
           )
           user = validateResponse.data.user
           logger.debug('Got user info from validate endpoint')
-        } catch (_validateError: any) {
+        } catch (_validateError: unknown) {
           // If validate endpoint doesn't exist, try alternate endpoints
           logger.debug('Validate endpoint not available, trying /api/auth/me')
           try {
             const meResponse = await axios.get(`${this.apiUrl}/api/auth/me`, {
               headers: {
-                Authorization: `Bearer ${tokenResponse.access_token}`,
+                Authorization: `Bearer ${authTokenResponse.access_token}`,
               },
             })
             user = meResponse.data
             logger.debug('Got user info from /api/auth/me')
-          } catch (_meError: any) {
+          } catch (_meError: unknown) {
             // Last resort: create a minimal user object
             logger.warn('No user info endpoints available, using placeholder user')
             user = {
@@ -213,14 +214,15 @@ export class AuthManager {
       // Save the session
       await this.saveSession({
         user,
-        token: tokenResponse.access_token,
-        refreshToken: tokenResponse.refresh_token,
-        expiresAt: Date.now() + (tokenResponse.expires_in ? tokenResponse.expires_in * 1000 : 7 * 24 * 60 * 60 * 1000),
+        token: authTokenResponse.access_token,
+        refreshToken: authTokenResponse.refresh_token,
+        expiresAt:
+          Date.now() + (authTokenResponse.expires_in ? authTokenResponse.expires_in * 1000 : 7 * 24 * 60 * 60 * 1000),
       })
 
       logger.debug('Device flow login successful', { userId: user.id })
-      return { user, token: tokenResponse.access_token }
-    } catch (error: any) {
+      return { user, token: authTokenResponse.access_token }
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message
         throw new Error(`Device flow failed: ${message}`)
@@ -324,7 +326,7 @@ export class AuthManager {
       )
 
       return response.data.token
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message
         throw new Error(`Failed to create PAT: ${message}`)
@@ -348,7 +350,7 @@ export class AuthManager {
       })
 
       return response.data.tokens || []
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.message || error.message
         throw new Error(`Failed to list PATs: ${message}`)

@@ -36,7 +36,7 @@ export class MCPClient {
 
       logger.debug(`MCP Response [${id}]:`, response.data.result)
       return response.data.result
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.error?.message || error.message
         throw new Error(`MCP call failed: ${message}`)

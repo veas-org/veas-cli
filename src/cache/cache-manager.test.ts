@@ -6,7 +6,7 @@ vi.mock('node-cache')
 
 describe('CacheManager', () => {
   let cacheManager: CacheManager
-  let mockCache: any
+  let mockCache: unknown
 
   beforeEach(() => {
     vi.clearAllMocks()

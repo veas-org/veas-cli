@@ -39,7 +39,7 @@ describe.skip('Error Handling E2E Tests', () => {
       try {
         await badClient.listTools()
         expect.fail('Should have thrown error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expectConnectionError(error, 'dns')
       }
     })
@@ -52,7 +52,7 @@ describe.skip('Error Handling E2E Tests', () => {
       try {
         await badClient.listTools()
         expect.fail('Should have thrown error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expectConnectionError(error, 'network')
       }
     })
@@ -114,7 +114,7 @@ describe.skip('Error Handling E2E Tests', () => {
       try {
         await client.listTools()
         expect.fail('Should require authentication')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).toMatch(/auth|token|unauthorized/i)
       }
     })
@@ -133,7 +133,7 @@ describe.skip('Error Handling E2E Tests', () => {
         try {
           await client.listTools()
           expect.fail(`Should reject token: ${invalidToken}`)
-        } catch (error: any) {
+        } catch (error: unknown) {
           expect(error.message).toBeDefined()
         }
       }
@@ -185,7 +185,7 @@ describe.skip('Error Handling E2E Tests', () => {
           summary: null,
           description: undefined,
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Any error is acceptable - we're testing it doesn't crash
         expect(error.message).toBeDefined()
       }
@@ -204,7 +204,7 @@ describe.skip('Error Handling E2E Tests', () => {
       try {
         await badClient.listTools()
         expect.fail('Should have failed')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).toBeDefined()
       }
     })
@@ -234,7 +234,7 @@ describe.skip('Error Handling E2E Tests', () => {
           const result = await retryClient.listTools()
           expect(result).toBeDefined()
           break // Success
-        } catch (error: any) {
+        } catch (error: unknown) {
           lastError = error
           if (i < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, 100))
@@ -286,7 +286,7 @@ describe.skip('Error Handling E2E Tests', () => {
         try {
           await testCase.action()
           expect.fail(`${testCase.scenario} should have failed`)
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.log(`${testCase.scenario}: ${error.message}`)
 
           // Check if error message contains helpful keywords

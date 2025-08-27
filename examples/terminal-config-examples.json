@@ -1,0 +1,153 @@
+{
+  "tasks": [
+    {
+      "name": "Claude in Default Terminal",
+      "description": "Run Claude in system default terminal",
+      "task_type": "single",
+      "configuration": {
+        "command": "claude",
+        "openInNewTerminal": true,
+        "keepTerminalOpen": true
+      }
+    },
+    {
+      "name": "Claude in iTerm2",
+      "description": "Run Claude specifically in iTerm2",
+      "task_type": "single",
+      "configuration": {
+        "command": "claude",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "keepTerminalOpen": true
+      }
+    },
+    {
+      "name": "Claude with Companion Monitor",
+      "description": "Run Claude with dual terminals - execution and monitoring",
+      "task_type": "single",
+      "configuration": {
+        "command": "claude",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "useCompanion": true,
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "trigger": "Would you like to",
+            "input": "yes\n",
+            "delay": 2000
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dev Server in iTerm2",
+      "description": "Run development server in iTerm2",
+      "task_type": "single",
+      "configuration": {
+        "command": "npm run dev",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "keepTerminalOpen": true
+      }
+    },
+    {
+      "name": "SSH Session with Auto-Login",
+      "description": "SSH connection in new terminal with auto-login",
+      "task_type": "single",
+      "configuration": {
+        "command": "ssh user@example.com",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "trigger": "password:",
+            "input": "${SSH_PASSWORD}\n",
+            "delay": 500
+          }
+        ]
+      }
+    },
+    {
+      "name": "Docker Interactive Container",
+      "description": "Run Docker container interactively in iTerm2",
+      "task_type": "single",
+      "configuration": {
+        "command": "docker run -it ubuntu:latest bash",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "keepTerminalOpen": true
+      }
+    },
+    {
+      "name": "Python REPL in Terminal",
+      "description": "Open Python REPL in separate terminal",
+      "task_type": "single",
+      "configuration": {
+        "command": "python",
+        "openInNewTerminal": true,
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "immediate": true,
+            "input": "print('Python session started!')\n",
+            "delay": 500
+          }
+        ]
+      }
+    },
+    {
+      "name": "Database Client in iTerm2",
+      "description": "Connect to database in iTerm2",
+      "task_type": "single",
+      "configuration": {
+        "command": "psql -h localhost -U postgres",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "trigger": "Password:",
+            "input": "${DB_PASSWORD}\n",
+            "delay": 500
+          }
+        ]
+      }
+    }
+  ],
+  "terminal_options": {
+    "openInNewTerminal": {
+      "description": "Opens the command in a separate terminal window",
+      "type": "boolean",
+      "default": false
+    },
+    "terminalApp": {
+      "description": "Specifies which terminal application to use",
+      "type": "string",
+      "options": ["terminal", "iterm", "iterm2", "warp", "alacritty", "kitty", "hyper"],
+      "default": "system default"
+    },
+    "useCompanion": {
+      "description": "Opens two terminals - one for execution, one for monitoring",
+      "type": "boolean",
+      "default": false
+    },
+    "keepTerminalOpen": {
+      "description": "Keeps the terminal window open after command completes",
+      "type": "boolean",
+      "default": true
+    },
+    "autoResponses": {
+      "description": "Array of automatic responses to send to interactive commands",
+      "type": "array",
+      "items": {
+        "trigger": "Regex pattern to match in output",
+        "input": "Text to send (include \\n for Enter)",
+        "delay": "Milliseconds to wait before sending",
+        "immediate": "Send immediately on start",
+        "closeAfter": "Terminate session after sending"
+      }
+    }
+  }
+}

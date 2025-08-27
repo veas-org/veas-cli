@@ -140,7 +140,9 @@ class DocsSyncer {
 
       if (result.errors.length > 0) {
         logger.warn('Sync completed with errors:')
-        result.errors.forEach(err => logger.error(`  - ${err}`))
+        for (const err of result.errors) {
+          logger.error(`  - ${err}`)
+        }
       }
 
       return result
@@ -478,8 +480,10 @@ class DocsSyncer {
             throw new Error(`Failed to create folder: ${folderResponse.error}`)
           }
           logger.info(`Created folder: ${remoteName}`)
-        } catch (error: any) {
-          logger.warn(`Failed to create folder "${remoteName}": ${error.message}`)
+        } catch (error: unknown) {
+          logger.warn(
+            `Failed to create folder "${remoteName}": ${error instanceof Error ? error.message : String(error)}`,
+          )
         }
       }
     }
@@ -555,7 +559,7 @@ class DocsSyncer {
   private extractTitle(content: string, relativePath: string): string {
     // Try to extract from first H1
     const h1Match = content.match(/^#\s+(.+)$/m)
-    if (h1Match && h1Match[1]) {
+    if (h1Match?.[1]) {
       return h1Match[1].trim()
     }
 
@@ -666,31 +670,31 @@ class DocsSyncer {
   }
 
   private async displayDryRunSummary(operations: any): Promise<void> {
-    console.log('\n' + pc.bold('Dry Run Summary:'))
+    console.log(`\n${pc.bold('Dry Run Summary:')}`)
     console.log(pc.green(`  Create: ${operations.create.length} articles`))
     console.log(pc.yellow(`  Update: ${operations.update.length} articles`))
     console.log(pc.red(`  Archive: ${operations.archive.length} articles`))
     console.log(pc.gray(`  Skip: ${operations.skip.length} articles`))
 
     if (operations.create.length > 0) {
-      console.log('\n' + pc.green('Articles to create:'))
-      operations.create.forEach((file: FileInfo) => {
+      console.log(`\n${pc.green('Articles to create:')}`)
+      for (const file of operations.create) {
         console.log(`  - ${file.relativePath} → ${file.metadata.title}`)
-      })
+      }
     }
 
     if (operations.update.length > 0) {
-      console.log('\n' + pc.yellow('Articles to update:'))
-      operations.update.forEach(({ file, article }: any) => {
+      console.log(`\n${pc.yellow('Articles to update:')}`)
+      for (const { file, article } of operations.update) {
         console.log(`  - ${file.relativePath} → ${article.title}`)
-      })
+      }
     }
 
     if (operations.archive.length > 0) {
-      console.log('\n' + pc.red('Articles to archive:'))
-      operations.archive.forEach((article: any) => {
+      console.log(`\n${pc.red('Articles to archive:')}`)
+      for (const article of operations.archive) {
         console.log(`  - ${article.title}`)
-      })
+      }
     }
   }
 
@@ -735,8 +739,10 @@ class DocsSyncer {
         } else {
           throw new Error(`Failed to create article: ${createResponse.error}`)
         }
-      } catch (error: any) {
-        result.errors.push(`Failed to create ${file.relativePath}: ${error.message}`)
+      } catch (error: unknown) {
+        result.errors.push(
+          `Failed to create ${file.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+        )
       }
     }
 
@@ -767,8 +773,10 @@ class DocsSyncer {
         } else {
           throw new Error(`Failed to update article: ${updateResponse.error}`)
         }
-      } catch (error: any) {
-        result.errors.push(`Error updating ${file.relativePath}: ${error.message}`)
+      } catch (error: unknown) {
+        result.errors.push(
+          `Error updating ${file.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+        )
       }
     }
 
@@ -786,8 +794,10 @@ class DocsSyncer {
         } else {
           throw new Error(`Failed to archive article: ${archiveResponse.error}`)
         }
-      } catch (error: any) {
-        result.errors.push(`Error archiving ${article.title}: ${error.message}`)
+      } catch (error: unknown) {
+        result.errors.push(
+          `Error archiving ${article.title}: ${error instanceof Error ? error.message : String(error)}`,
+        )
       }
     }
 
@@ -843,8 +853,8 @@ class DocsSyncer {
           tag_ids: tagIds,
         })
       }
-    } catch (error: any) {
-      logger.warn(`Failed to add tags to article: ${error.message}`)
+    } catch (error: unknown) {
+      logger.warn(`Failed to add tags to article: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 

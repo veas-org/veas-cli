@@ -111,7 +111,7 @@ export class MCPTestClient {
       }
 
       return result
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.name === 'AbortError') {
         throw new Error(`Request timeout after ${this.timeout}ms`)
       }

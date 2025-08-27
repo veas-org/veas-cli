@@ -1,0 +1,152 @@
+{
+  "tasks": [
+    {
+      "name": "Claude Interactive Session",
+      "description": "Run Claude in a separate terminal with auto-responses",
+      "task_type": "single",
+      "configuration": {
+        "command": "claude",
+        "openInNewTerminal": true,
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "trigger": "Would you like to",
+            "input": "yes\n",
+            "delay": 2000
+          },
+          {
+            "delay": 15000,
+            "input": "continue\n"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Claude in iTerm2",
+      "description": "Run Claude in iTerm2 with auto-responses",
+      "task_type": "single",
+      "configuration": {
+        "command": "claude",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "trigger": "Would you like to",
+            "input": "yes\n",
+            "delay": 2000
+          },
+          {
+            "delay": 15000,
+            "input": "continue\n"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Claude with Monitor",
+      "description": "Run Claude with a companion monitor terminal",
+      "task_type": "single",
+      "configuration": {
+        "command": "claude",
+        "openInNewTerminal": true,
+        "terminalApp": "iterm2",
+        "useCompanion": true,
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "trigger": "Would you like to|Do you want to",
+            "input": "yes\n",
+            "delay": 2000
+          },
+          {
+            "trigger": "Continue\\?",
+            "input": "\n",
+            "delay": 1000
+          },
+          {
+            "delay": 30000,
+            "input": "continue\n"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SSH Deployment",
+      "description": "SSH to server in new terminal with auto-login",
+      "task_type": "single",
+      "configuration": {
+        "command": "ssh deploy@example.com",
+        "openInNewTerminal": true,
+        "separateTerminal": true,
+        "autoResponses": [
+          {
+            "trigger": "password:",
+            "input": "${SSH_PASSWORD}\n",
+            "delay": 500
+          },
+          {
+            "trigger": "\\$ ",
+            "input": "cd /app && ./deploy.sh\n",
+            "delay": 1000
+          },
+          {
+            "delay": 10000,
+            "input": "exit\n",
+            "closeAfter": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "Python REPL Session",
+      "description": "Open Python REPL in separate terminal",
+      "task_type": "single",
+      "configuration": {
+        "command": "python",
+        "openInNewTerminal": true,
+        "keepTerminalOpen": true,
+        "autoResponses": [
+          {
+            "immediate": true,
+            "input": "print('Hello from Python!')\n",
+            "delay": 500
+          },
+          {
+            "delay": 2000,
+            "input": "import sys\n"
+          },
+          {
+            "delay": 3000,
+            "input": "print(sys.version)\n"
+          },
+          {
+            "delay": 5000,
+            "input": "exit()\n",
+            "closeAfter": true
+          }
+        ]
+      }
+    }
+  ],
+  "usage": {
+    "openInNewTerminal": "Opens the command in a separate terminal window",
+    "separateTerminal": "Alternative flag to open in separate terminal (useful for interactive commands)",
+    "useCompanion": "Opens two terminals - one for execution, one for monitoring",
+    "keepTerminalOpen": "Keeps the terminal open after command completes (default: true for interactive)",
+    "terminalApp": "Preferred terminal application (e.g., 'iterm2', 'warp', 'alacritty')",
+    "autoResponses": "Array of automatic responses to send to the interactive command"
+  },
+  "terminalApps": {
+    "macOS": ["terminal", "iterm", "iterm2", "warp", "alacritty", "kitty", "hyper"],
+    "windows": ["cmd", "powershell", "windowsterminal", "wt"],
+    "linux": ["gnome-terminal", "konsole", "xterm", "terminator", "alacritty", "kitty"]
+  },
+  "autoResponseFields": {
+    "trigger": "Regex pattern to match in output before sending response",
+    "input": "The text to send (include \\n for Enter key)",
+    "delay": "Milliseconds to wait before sending the response",
+    "immediate": "Send immediately on start without waiting for output",
+    "closeAfter": "Terminate the session after sending this response"
+  }
+}

@@ -112,7 +112,11 @@ destCmd
   .option('--force', 'Skip confirmation', false)
   .action(deleteDestination)
 
-destCmd.command('watch <destinationId>').description('Watch executions on a destination').action(watchDestination)
+destCmd
+  .command('watch <destinationId>')
+  .description('Watch executions on a destination')
+  .option('--verbose', 'Enable verbose logging for debugging', false)
+  .action(watchDestination)
 
 // Agent commands
 const agentCmd = program.command('agent').description('Agent execution commands')
@@ -127,6 +131,7 @@ agentCmd
   .option('--heartbeat-interval <ms>', 'Heartbeat interval in milliseconds', '30000')
   .option('--capabilities <json>', 'Agent capabilities as JSON')
   .option('--debug', 'Enable debug logging', false)
+  .option('--verbose', 'Enable verbose logging for debugging', false)
   .action(startAgent)
 
 agentCmd.command('stop').description('Stop running agent').action(stopAgent)

@@ -21,7 +21,7 @@ vi.mock('../utils/logger', () => ({
 }))
 
 describe('VeasConfigParser', () => {
-  let parser: VeasConfigParser
+  let _parser: VeasConfigParser
   const mockProjectDir = '/project'
 
   beforeEach(() => {
@@ -66,7 +66,7 @@ describe('VeasConfigParser', () => {
         .mockReturnValueOnce('/parent')
         .mockReturnValueOnce('/')
 
-      const parser = new VeasConfigParser()
+      const _parser = new VeasConfigParser()
       // Will find it in parent directory
     })
   })

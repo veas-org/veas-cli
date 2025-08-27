@@ -68,7 +68,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
         .eq('user_id', session.user.id)
 
       // Fetch organization details separately
-      let organizationsData: any[] = []
+      let organizationsData: unknown[] = []
       if (memberships && memberships.length > 0) {
         const orgIds = memberships.map(m => m.organization_id)
         const { data: orgs } = await supabase
@@ -84,7 +84,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
       const membershipsWithOrgs =
         memberships?.map(m => ({
           ...m,
-          organization: organizationsData.find(o => o.id === m.organization_id),
+          organization: organizationsData.find((o: any) => o.id === m.organization_id),
         })) || []
 
       if (memberError) {
@@ -110,8 +110,8 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
           message: 'Select organization:',
           options: membershipsWithOrgs.map(m => ({
             value: m.organization_id,
-            label: m.organization?.name || m.organization_id,
-            hint: m.organization?.slug,
+            label: (m.organization as any)?.name || m.organization_id,
+            hint: (m.organization as any)?.slug,
           })),
         })
 
@@ -157,7 +157,7 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
     console.log(chalk.bold('\nAgent Destinations:'))
     console.log(chalk.gray('─'.repeat(80)))
 
-    destinations.forEach(dest => {
+    for (const dest of destinations) {
       const status = getStatusColor(dest.status)
       console.log(`\n${chalk.bold(dest.name)} ${status(dest.status)}`)
       console.log(`  ID: ${chalk.gray(dest.id)}`)
@@ -176,9 +176,9 @@ export async function listDestinations(options: DestinationOptions): Promise<voi
       if (dest.tags?.length > 0) {
         console.log(`  Tags: ${dest.tags.join(', ')}`)
       }
-    })
-  } catch (error: any) {
-    spinner.fail(`Failed to list destinations: ${error.message}`)
+    }
+  } catch (error: unknown) {
+    spinner.fail(`Failed to list destinations: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 }
@@ -234,7 +234,7 @@ export async function registerDestination(options: any): Promise<void> {
     }
 
     // Fetch organization details separately
-    let organizationsData: any[] = []
+    let organizationsData: unknown[] = []
     if (memberships && memberships.length > 0) {
       const orgIds = memberships.map(m => m.organization_id)
       const { data: orgs } = await supabase
@@ -250,7 +250,7 @@ export async function registerDestination(options: any): Promise<void> {
     const membershipsWithOrgs =
       memberships?.map(m => ({
         ...m,
-        organization: organizationsData.find(o => o.id === m.organization_id),
+        organization: organizationsData.find((o: any) => o.id === m.organization_id),
       })) || []
 
     console.log(chalk.gray(`Found ${membershipsWithOrgs?.length || 0} organization memberships`))
@@ -274,7 +274,7 @@ export async function registerDestination(options: any): Promise<void> {
         process.exit(1)
       }
       selectedOrgId = options.organizationId
-      const orgName = membership.organization?.name || membership.organization_id
+      const orgName = (membership.organization as any)?.name || membership.organization_id
       console.log(chalk.gray(`Using organization: ${orgName}`))
     } else if (membershipsWithOrgs.length === 1) {
       const membership = membershipsWithOrgs[0]
@@ -283,15 +283,15 @@ export async function registerDestination(options: any): Promise<void> {
         process.exit(1)
       }
       selectedOrgId = membership.organization_id
-      const orgName = membership.organization?.name || membership.organization_id
+      const orgName = (membership.organization as any)?.name || membership.organization_id
       console.log(chalk.gray(`Using organization: ${orgName}`))
     } else {
       const orgChoice = await prompts.select({
         message: 'Select organization:',
         options: membershipsWithOrgs.map(m => ({
           value: m.organization_id,
-          label: m.organization?.name || m.organization_id,
-          hint: m.organization?.slug,
+          label: (m.organization as any)?.name || m.organization_id,
+          hint: (m.organization as any)?.slug,
         })),
       })
 
@@ -381,12 +381,12 @@ export async function registerDestination(options: any): Promise<void> {
     console.log(`  ID: ${destination.id}`)
     console.log(`  Name: ${destination.name}`)
     console.log(`  Hostname: ${destination.hostname}`)
-    console.log('\n' + chalk.yellow('⚠️  API Key (save this securely):'))
+    console.log(`\n${chalk.yellow('⚠️  API Key (save this securely):')}`)
     console.log(chalk.bold(`  ${apiKey}`))
     console.log(chalk.gray('\nThis API key will not be shown again.'))
     console.log(chalk.gray('Use it when starting agents on this destination.'))
-  } catch (error: any) {
-    spinner.fail(`Failed to register destination: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to register destination: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 }
@@ -462,8 +462,8 @@ export async function deleteDestination(destinationId: string, options: any): Pr
     }
 
     spinner.succeed(`Destination "${destination.name}" deleted successfully`)
-  } catch (error: any) {
-    spinner.fail(`Failed to delete destination: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to delete destination: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 }
@@ -471,7 +471,7 @@ export async function deleteDestination(destinationId: string, options: any): Pr
 /**
  * Watch destination executions and monitor schedules
  */
-export async function watchDestination(destinationId: string, _options: any): Promise<void> {
+export async function watchDestination(destinationId: string, options: any): Promise<void> {
   const spinner = ora('Connecting to destination...').start()
 
   try {
@@ -514,11 +514,19 @@ export async function watchDestination(destinationId: string, _options: any): Pr
 
     spinner.succeed(`Connected to destination: ${destination.name}`)
     console.log(chalk.gray('Starting schedule monitor and watching for executions...'))
+
+    if (options.verbose) {
+      console.log(chalk.yellow('Verbose mode: ENABLED'))
+      console.log(chalk.gray('[VERBOSE] Destination ID:', destinationId))
+      console.log(chalk.gray('[VERBOSE] Organization ID:', destination.organization_id))
+      console.log(chalk.gray('[VERBOSE] Supabase URL:', supabaseUrl))
+    }
+
     console.log(chalk.gray('Press Ctrl+C to stop\n'))
 
     // Import and start the schedule monitor
     const { ScheduleMonitor } = await import('../services/schedule-monitor.js')
-    const monitor = new ScheduleMonitor(supabase, destinationId, destination.organization_id)
+    const monitor = new ScheduleMonitor(supabase, destinationId, destination.organization_id, options.verbose)
 
     // Start monitoring
     await monitor.start()
@@ -532,8 +540,8 @@ export async function watchDestination(destinationId: string, _options: any): Pr
 
     // Keep the process alive
     await new Promise(() => {})
-  } catch (error: any) {
-    spinner.fail(`Failed to watch destination: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to watch destination: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
 }
@@ -562,6 +570,123 @@ function getStatusColor(status: string) {
       return chalk.yellow
     default:
       return chalk.white
+  }
+}
+
+/**
+ * List schedules for a destination
+ */
+export async function listDestinationSchedules(destinationId: string, options: any): Promise<void> {
+  const spinner = ora('Fetching schedules...').start()
+
+  try {
+    const authManager = AuthManager.getInstance()
+    const session = await authManager.getSession()
+
+    if (!session) {
+      spinner.fail('Not authenticated. Please run "veas auth login" first.')
+      process.exit(1)
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey) {
+      spinner.fail('Supabase configuration not found.')
+      process.exit(1)
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Fetch schedules for destination
+    const { data: schedules, error } = await supabase
+      .schema('agents')
+      .from('schedules')
+      .select(`
+        *,
+        tasks!inner(
+          id,
+          name,
+          description
+        )
+      `)
+      .eq('destination_id', destinationId)
+      .order('priority', { ascending: false })
+      .order('start_time', { ascending: true })
+
+    if (error) {
+      throw error
+    }
+
+    spinner.stop()
+
+    if (!schedules || schedules.length === 0) {
+      console.log(chalk.yellow('No schedules found for this destination'))
+      return
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(schedules, null, 2))
+      return
+    }
+
+    // Display schedules
+    console.log(chalk.bold('\nDestination Schedules:'))
+    console.log(chalk.gray('─'.repeat(80)))
+
+    for (const schedule of schedules) {
+      const task = (schedule as any).tasks
+      console.log(chalk.bold(`\n📅 ${schedule.title || task.name}`))
+      if (schedule.description) {
+        console.log(chalk.gray(`   ${schedule.description}`))
+      }
+      console.log(chalk.cyan(`   Task: ${task.name}`))
+      console.log(chalk.gray(`   Type: ${schedule.schedule_type}`))
+
+      if (schedule.schedule_type === 'calendar') {
+        console.log(chalk.gray(`   Start: ${new Date(schedule.start_time).toLocaleString()}`))
+        if (schedule.end_time) {
+          console.log(chalk.gray(`   End: ${new Date(schedule.end_time).toLocaleString()}`))
+        } else if (schedule.duration_minutes) {
+          console.log(chalk.gray(`   Duration: ${schedule.duration_minutes} minutes`))
+        }
+        if (schedule.recurrence_rule) {
+          console.log(chalk.gray(`   Recurrence: ${schedule.recurrence_rule}`))
+        }
+        if (schedule.all_day) {
+          console.log(chalk.gray(`   All Day: Yes`))
+        }
+      } else if (schedule.schedule_type === 'cron') {
+        console.log(chalk.gray(`   Cron: ${schedule.cron_expression}`))
+      } else if (schedule.schedule_type === 'interval') {
+        console.log(chalk.gray(`   Interval: ${schedule.interval_seconds} seconds`))
+      }
+
+      console.log(
+        chalk.gray(
+          `   Priority: ${schedule.priority === 0 ? 'Low' : schedule.priority === 1 ? 'Normal' : schedule.priority === 2 ? 'High' : 'Critical'}`,
+        ),
+      )
+      console.log(chalk.gray(`   Timezone: ${schedule.timezone}`))
+      console.log(chalk.gray(`   Enabled: ${schedule.is_enabled ? 'Yes' : 'No'}`))
+
+      if (schedule.next_run_at) {
+        console.log(chalk.yellow(`   Next Run: ${new Date(schedule.next_run_at).toLocaleString()}`))
+      }
+      if (schedule.last_run_at) {
+        console.log(chalk.gray(`   Last Run: ${new Date(schedule.last_run_at).toLocaleString()}`))
+      }
+      console.log(chalk.gray(`   Run Count: ${schedule.run_count}`))
+    }
+
+    console.log(chalk.gray(`\n${'─'.repeat(80)}`))
+    console.log(chalk.green(`Total: ${schedules.length} schedule(s)`))
+  } catch (error: unknown) {
+    spinner.fail(`Failed to fetch schedules: ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
   }
 }
 

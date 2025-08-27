@@ -103,10 +103,11 @@ export class VeasConfigParser {
 
   constructor(configPath?: string) {
     // If no config path provided, search for it
-    if (!configPath) {
-      configPath = this.findConfigFile()
+    let finalConfigPath = configPath
+    if (!finalConfigPath) {
+      finalConfigPath = this.findConfigFile()
     }
-    this.configPath = configPath
+    this.configPath = finalConfigPath
   }
 
   /**

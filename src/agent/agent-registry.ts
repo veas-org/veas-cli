@@ -65,7 +65,7 @@ export class AgentRegistry {
   /**
    * Get system capabilities
    */
-  private getCapabilities(): Record<string, any> {
+  private getCapabilities(): Record<string, unknown> {
     return {
       platform: platform(),
       arch: arch(),
@@ -111,6 +111,7 @@ export class AgentRegistry {
 
       // Check if agent already exists
       const { data: existing } = await this.supabase
+        .schema('agents')
         .from('agent_destinations')
         .select('id')
         .eq('organization_id', this.config.organizationId)
@@ -120,6 +121,7 @@ export class AgentRegistry {
       if (existing) {
         // Update existing agent
         const { error } = await this.supabase
+          .schema('agents')
           .from('agent_destinations')
           .update({
             hostname: hostname(),
@@ -147,9 +149,11 @@ export class AgentRegistry {
       } else {
         // Create new agent
         const { data, error } = await this.supabase
+          .schema('agents')
           .from('agent_destinations')
           .insert({
             organization_id: this.config.organizationId,
+            owner_id: '00000000-0000-0000-0000-000000000001', // Default system user
             name: this.config.name,
             hostname: hostname(),
             machine_id: machineId,
@@ -159,7 +163,7 @@ export class AgentRegistry {
             api_key_hash: this.apiKeyHash,
             status: 'online',
             max_concurrent_tasks: this.config.maxConcurrentTasks || 1,
-            allowed_task_types: ['workflow', 'tool', 'transform'],
+            allowed_task_types: ['workflow', 'single', 'batch'],
             metadata: this.config.capabilities || {},
             tags: [],
             is_active: true,
@@ -205,6 +209,7 @@ export class AgentRegistry {
     try {
       // Update status to offline
       await this.supabase
+        .schema('agents')
         .from('agent_destinations')
         .update({
           status: 'offline',
@@ -283,6 +288,7 @@ export class AgentRegistry {
 
       // Also update the destination's last heartbeat
       const { error: updateError } = await this.supabase
+        .schema('agents')
         .from('agent_destinations')
         .update({
           last_heartbeat_at: new Date().toISOString(),
@@ -318,7 +324,11 @@ export class AgentRegistry {
         }
       }
 
-      const { error } = await this.supabase.from('agent_destinations').update(updates).eq('id', this.destinationId)
+      const { error } = await this.supabase
+        .schema('agents')
+        .from('agent_destinations')
+        .update(updates)
+        .eq('id', this.destinationId)
 
       if (error) {
         logger.error('Failed to update agent status:', error)

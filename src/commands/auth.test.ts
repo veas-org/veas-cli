@@ -9,8 +9,8 @@ vi.mock('../auth/auth-manager')
 vi.mock('@clack/prompts')
 
 describe('Auth Commands', () => {
-  let mockAuthManager: any
-  let mockSpinner: any
+  let mockAuthManager: unknown
+  let mockSpinner: unknown
   let consoleLogSpy: any
   let consoleErrorSpy: any
   let processExitSpy: any
@@ -79,7 +79,7 @@ describe('Auth Commands', () => {
 
     it('should validate email input', async () => {
       let validateFn: any
-      vi.mocked(prompts.text).mockImplementation(async (options: any) => {
+      vi.mocked(prompts.text).mockImplementation(async (options: unknown) => {
         validateFn = options.validate
         return 'test@example.com'
       })
@@ -99,7 +99,7 @@ describe('Auth Commands', () => {
     it('should validate password input', async () => {
       let validateFn: any
       vi.mocked(prompts.text).mockResolvedValueOnce('test@example.com')
-      vi.mocked(prompts.password).mockImplementation(async (options: any) => {
+      vi.mocked(prompts.password).mockImplementation(async (options: unknown) => {
         validateFn = options.validate
         return 'V3@s$2024!Dev#Seed&Test'
       })

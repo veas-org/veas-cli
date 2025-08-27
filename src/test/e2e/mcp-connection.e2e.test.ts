@@ -115,7 +115,7 @@ describe.skip('MCP Connection E2E Tests', () => {
       try {
         await badClient.listTools()
         expect.fail('Should have thrown connection error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expectConnectionError(error, 'network')
       }
     })
@@ -206,7 +206,7 @@ describe.skip('MCP Connection E2E Tests', () => {
       try {
         await client.listTools()
         expect.fail('Should have thrown authentication error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).toMatch(/auth/i)
       }
     })
@@ -261,9 +261,9 @@ describe.skip('MCP Connection E2E Tests', () => {
       expect(avgTime).toBeLessThan(1000)
 
       // No single request should take more than 5 seconds
-      times.forEach(time => {
+      for (const time of times) {
         expect(time).toBeLessThan(5000)
-      })
+      }
     })
 
     it('should handle concurrent requests', async () => {
@@ -287,9 +287,9 @@ describe.skip('MCP Connection E2E Tests', () => {
       const results = await Promise.allSettled(promises)
 
       // All should succeed
-      results.forEach(result => {
+      for (const result of results) {
         expect(result.status).toBe('fulfilled')
-      })
+      }
     })
   })
 })

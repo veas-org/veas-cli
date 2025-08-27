@@ -235,8 +235,8 @@ export class MCPServer {
 
       logger.debug(`Tool executed successfully via mcp-simple`)
       return result?.result
-    } catch (error: any) {
-      logger.error(`MCP simple execution failed: ${error.message}`)
+    } catch (error: unknown) {
+      logger.error(`MCP simple execution failed: ${error instanceof Error ? error.message : String(error)}`)
       throw error
     }
   }

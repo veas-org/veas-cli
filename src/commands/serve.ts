@@ -39,17 +39,17 @@ export async function serve(options: ServeOptions) {
   if (isMCPMode) {
     const originalLog = console.log
     // const originalError = console.error;
-    console.log = (...args: any[]) => {
+    console.log = (...args: unknown[]) => {
       // Only output to stderr if it's not JSON-RPC
       const msg = args.join(' ')
       if (!msg.trim().startsWith('{')) {
-        process.stderr.write(msg + '\n')
+        process.stderr.write(`${msg}\n`)
       } else {
         // This is JSON-RPC, use original stdout
         originalLog(...args)
       }
     }
-    console.error = (...args: any[]) => process.stderr.write(args.join(' ') + '\n')
+    console.error = (...args: unknown[]) => process.stderr.write(`${args.join(' ')}\n`)
   }
 
   const s = isMCPMode ? null : spinner()

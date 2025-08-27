@@ -41,7 +41,7 @@ class MockEventSource extends EventEmitter {
     this.off(type, listener)
   }
 
-  emit(event: string, ...args: any[]): boolean {
+  emit(event: string, ...args: unknown[]): boolean {
     // Call the appropriate handler if set
     if (event === 'message' && this.onmessage) {
       this.onmessage(args[0])
@@ -63,13 +63,13 @@ global.EventSource = MockEventSource as any
 
 describe('SSEClient', () => {
   let client: SSEClient
-  let consoleLogSpy: any
-  let consoleErrorSpy: any
+  let _consoleLogSpy: any
+  let _consoleErrorSpy: any
 
   beforeEach(() => {
     vi.clearAllMocks()
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    _consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    _consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     client = new SSEClient('http://localhost:3000/sse')
   })
 
@@ -240,7 +240,7 @@ describe('SSEClient', () => {
 
       client.connect()
       await new Promise(resolve => setTimeout(resolve, 10))
-      const firstSource = client.eventSource
+      const _firstSource = client.eventSource
 
       // Simulate error
       const errorEvent = new Event('error')

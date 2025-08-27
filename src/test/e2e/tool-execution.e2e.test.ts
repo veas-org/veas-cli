@@ -7,7 +7,7 @@ import { TEST_TOKENS, waitForServer } from './setup.js'
 describe.skip('Tool Execution E2E Tests', () => {
   let client: MCPTestClient
   let serverReady: boolean
-  let availableTools: any[] = []
+  let availableTools: unknown[] = []
 
   beforeAll(async () => {
     serverReady = await waitForServer()
@@ -54,12 +54,12 @@ describe.skip('Tool Execution E2E Tests', () => {
       expect(tools.length).toBeGreaterThan(0)
 
       // Each tool should have required properties
-      tools.forEach(tool => {
+      for (const tool of tools) {
         expect(tool.name).toBeDefined()
         expect(tool.description).toBeDefined()
         expect(tool.inputSchema).toBeDefined()
         expect(tool.inputSchema.type).toBe('object')
-      })
+      }
     })
 
     it('should include project management tools', async () => {
@@ -232,7 +232,7 @@ describe.skip('Tool Execution E2E Tests', () => {
           const issue = result.issue || result.data
           expect(issue.summary).toBe(issueData.summary)
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         // In test environment, writes might be disabled
         console.log('Issue creation failed (expected in test env):', error.message)
       }
@@ -263,7 +263,7 @@ describe.skip('Tool Execution E2E Tests', () => {
         })
 
         expect.fail('Should have thrown error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Error message should be helpful
         expect(error.message).toBeDefined()
         expect(error.message.length).toBeGreaterThan(10)
@@ -288,29 +288,29 @@ describe.skip('Tool Execution E2E Tests', () => {
           // Build minimal valid params based on schema
           const params: any = {}
           if (tool.inputSchema?.properties) {
-            Object.entries(tool.inputSchema.properties).forEach(([key, schema]: [string, any]) => {
+            for (const [key, schema] of Object.entries(tool.inputSchema.properties)) {
               if (tool.inputSchema.required?.includes(key)) {
                 // Provide minimal valid value
-                switch (schema.type) {
+                switch ((schema as any).type) {
                   case 'string':
                     params[key] = 'test'
                     break
                   case 'number':
-                    params[key] = schema.default || 1
+                    params[key] = (schema as any).default || 1
                     break
                   case 'boolean':
                     params[key] = false
                     break
                 }
               }
-            })
+            }
           }
 
           const result = await client.callTool(tool.name, params)
 
           // Result should be parseable
           expectToolResponse(result)
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.log(`Tool ${tool.name} error (might be expected):`, error.message)
         }
       }

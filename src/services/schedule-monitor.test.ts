@@ -10,7 +10,7 @@ import { TaskExecutor } from './task-executor.js'
 vi.mock('./task-executor.js')
 
 describe('ScheduleMonitor', () => {
-  let mockSupabase: any
+  let mockSupabase: unknown
   let monitor: ScheduleMonitor
   let consoleLogSpy: any
   let consoleErrorSpy: any
@@ -146,7 +146,7 @@ describe('ScheduleMonitor', () => {
   describe('execution handling', () => {
     it('should handle new execution INSERT event', async () => {
       const mockChannel = {
-        on: vi.fn((event, config, handler) => {
+        on: vi.fn((_event, config, handler) => {
           // Simulate an INSERT event
           if (config.table === 'executions') {
             setTimeout(() => {
@@ -188,7 +188,7 @@ describe('ScheduleMonitor', () => {
 
     it('should handle execution UPDATE event for unclaimed tasks', async () => {
       const mockChannel = {
-        on: vi.fn((event, config, handler) => {
+        on: vi.fn((_event, config, handler) => {
           // Simulate an UPDATE event
           if (config.table === 'executions') {
             setTimeout(() => {

@@ -8,7 +8,7 @@ global.fetch = vi.fn()
 
 describe('MCPClient', () => {
   let client: MCPClient
-  let mockAuthManager: any
+  let mockAuthManager: unknown
 
   beforeEach(() => {
     vi.clearAllMocks()

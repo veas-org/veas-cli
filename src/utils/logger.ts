@@ -14,32 +14,32 @@ class Logger {
     this.level = level
   }
 
-  debug(...args: any[]) {
+  debug(...args: unknown[]) {
     if (this.level <= LogLevel.DEBUG) {
       console.log(pc.gray('[DEBUG]'), ...args)
     }
   }
 
-  debugSensitive(...args: any[]) {
+  debugSensitive(...args: unknown[]) {
     // Only log sensitive data in debug mode, and redact in production
     if (this.level <= LogLevel.DEBUG && process.env.NODE_ENV !== 'production') {
       console.log(pc.gray('[DEBUG-SENSITIVE]'), ...args)
     }
   }
 
-  info(...args: any[]) {
+  info(...args: unknown[]) {
     if (this.level <= LogLevel.INFO) {
       console.log(...args)
     }
   }
 
-  warn(...args: any[]) {
+  warn(...args: unknown[]) {
     if (this.level <= LogLevel.WARN) {
       console.warn(pc.yellow('[WARN]'), ...args)
     }
   }
 
-  error(...args: any[]) {
+  error(...args: unknown[]) {
     if (this.level <= LogLevel.ERROR) {
       console.error(pc.red('[ERROR]'), ...args)
     }

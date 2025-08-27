@@ -164,7 +164,7 @@ describe('Logger', () => {
     })
 
     it('should log sensitive data in debug mode when not in production', () => {
-      delete process.env.NODE_ENV
+      process.env.NODE_ENV = undefined
       logger.setLevel(LogLevel.DEBUG)
       const sensitiveData = { token: 'abc123', apiKey: 'xyz789' }
       logger.debugSensitive('Sensitive data:', sensitiveData)

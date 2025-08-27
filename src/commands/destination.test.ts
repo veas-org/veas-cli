@@ -23,11 +23,11 @@ const mockSpinner = {
 }
 
 // Set up method chaining for spinner
-Object.keys(mockSpinner).forEach(key => {
+for (const key of Object.keys(mockSpinner)) {
   if (typeof mockSpinner[key as keyof typeof mockSpinner] === 'function') {
     mockSpinner[key as keyof typeof mockSpinner].mockReturnValue(mockSpinner)
   }
-})
+}
 
 // Mock ora before importing the module that uses it
 vi.mock('ora', () => ({
@@ -38,9 +38,9 @@ vi.mock('ora', () => ({
 import { deleteDestination, listDestinations, registerDestination, watchDestination } from './destination.js'
 
 describe('Destination Commands', () => {
-  let mockSupabase: any
-  let mockAuthManager: any
-  let mockSession: any
+  let mockSupabase: unknown
+  let mockAuthManager: unknown
+  let mockSession: unknown
   let consoleLogSpy: any
   let processExitSpy: any
 
@@ -246,7 +246,7 @@ describe('Destination Commands', () => {
 
       vi.mocked(prompts.text)
         .mockResolvedValueOnce('my-agent-server') // name
-        .mockImplementationOnce((options: any) => {
+        .mockImplementationOnce((options: unknown) => {
           expect(options.initialValue).toBe(systemHostname)
           return Promise.resolve('custom-hostname.com')
         })
@@ -279,7 +279,7 @@ describe('Destination Commands', () => {
     })
 
     it('should validate required fields', async () => {
-      vi.mocked(prompts.text).mockImplementationOnce((options: any) => {
+      vi.mocked(prompts.text).mockImplementationOnce((options: unknown) => {
         const result = options.validate?.('')
         expect(result).toBe('Name is required')
         return Promise.resolve('valid-name')
@@ -308,7 +308,7 @@ describe('Destination Commands', () => {
       vi.mocked(prompts.text)
         .mockResolvedValueOnce('my-server')
         .mockResolvedValueOnce('hostname.com')
-        .mockImplementationOnce((options: any) => {
+        .mockImplementationOnce((options: unknown) => {
           expect(options.validate?.('0')).toBe('Must be a positive number')
           expect(options.validate?.('-5')).toBe('Must be a positive number')
           expect(options.validate?.('abc')).toBe('Must be a positive number')
@@ -500,7 +500,7 @@ describe('Destination Commands', () => {
         ScheduleMonitor: mockScheduleMonitorClass,
       }))
 
-      const processOnSpy = vi.spyOn(process, 'on').mockImplementation((event, handler) => {
+      const _processOnSpy = vi.spyOn(process, 'on').mockImplementation((event, handler) => {
         if (event === 'SIGINT') {
           sigintHandler = handler
         }
@@ -508,7 +508,7 @@ describe('Destination Commands', () => {
       })
 
       // Start watching
-      const watchPromise = watchDestination(destinationId, {})
+      const _watchPromise = watchDestination(destinationId, {})
 
       // Give it time to set up
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -525,7 +525,7 @@ describe('Destination Commands', () => {
       if (sigintHandler && typeof sigintHandler === 'function') {
         try {
           await sigintHandler('SIGINT', 2)
-        } catch (e) {
+        } catch (_e) {
           // Expected to throw process exit
         }
       }
@@ -557,10 +557,10 @@ describe('Destination Commands', () => {
 
   describe('Edge cases and error handling', () => {
     it('should handle missing environment variables', async () => {
-      delete process.env.SUPABASE_URL
-      delete process.env.SUPABASE_ANON_KEY
-      delete process.env.NEXT_PUBLIC_SUPABASE_URL
-      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.SUPABASE_URL = undefined
+      process.env.SUPABASE_ANON_KEY = undefined
+      process.env.NEXT_PUBLIC_SUPABASE_URL = undefined
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = undefined
 
       await expect(listDestinations({})).rejects.toThrow('Process exit')
       expect(processExitSpy).toHaveBeenCalledWith(1)
@@ -582,7 +582,7 @@ describe('Destination Commands', () => {
       let changeHandler: any
 
       const mockChannel = {
-        on: vi.fn((event, config, handler) => {
+        on: vi.fn((_event, _config, handler) => {
           changeHandler = handler
           return mockChannel
         }),
@@ -596,7 +596,7 @@ describe('Destination Commands', () => {
 
       mockSupabase.channel.mockReturnValue(mockChannel)
 
-      const watchPromise = watchDestination(destinationId, {})
+      const _watchPromise = watchDestination(destinationId, {})
 
       await new Promise(resolve => setTimeout(resolve, 100))
 

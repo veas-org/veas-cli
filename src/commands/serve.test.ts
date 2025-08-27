@@ -14,9 +14,9 @@ vi.mock('dotenv')
 const { serve } = await import('./serve')
 
 describe('serve command', () => {
-  let mockAuthManager: any
+  let mockAuthManager: unknown
   let mockMCPServer: any
-  let mockSpinner: any
+  let mockSpinner: unknown
   let consoleLogSpy: any
   let consoleErrorSpy: any
   let processExitSpy: any
@@ -33,7 +33,7 @@ describe('serve command', () => {
     })
 
     // Clear MCP_MODE
-    delete process.env.MCP_MODE
+    process.env.MCP_MODE = undefined
 
     // Setup console spies
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})

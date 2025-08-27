@@ -51,7 +51,7 @@ describe.skip('Authentication E2E Tests', () => {
       try {
         const tools = await client.listTools()
         expect(tools).toBeDefined()
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If using mock PAT, might fail
         console.log('PAT authentication failed (expected with mock token):', error.message)
       }
@@ -197,7 +197,7 @@ describe.skip('Authentication E2E Tests', () => {
 
         // If it succeeds, token has sufficient scopes
         expect(true).toBe(true)
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If it fails due to scopes, that's also valid behavior
         if (error.message.includes('scope') || error.message.includes('permission')) {
           expect(true).toBe(true)
@@ -217,7 +217,7 @@ describe.skip('Authentication E2E Tests', () => {
 
       // PAT format: prefix_randomhex_tokenhex
       const validPATFormat = 'mcp_1234_abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789'
-      const invalidPATFormat = 'mcp-1234-invalid'
+      const _invalidPATFormat = 'mcp-1234-invalid'
 
       // Valid format should at least be accepted by the client
       client.setToken(validPATFormat)
@@ -260,9 +260,9 @@ describe.skip('Authentication E2E Tests', () => {
       }
 
       // All requests should succeed
-      results.forEach(tools => {
+      for (const tools of results) {
         expect(Array.isArray(tools)).toBe(true)
-      })
+      }
     })
 
     it('should handle token refresh scenario', async () => {
@@ -301,7 +301,7 @@ describe.skip('Authentication E2E Tests', () => {
       try {
         await client.listTools()
         expect.fail('Should have thrown error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).toMatch(/auth|token|required/i)
       }
     })
@@ -317,7 +317,7 @@ describe.skip('Authentication E2E Tests', () => {
       try {
         await client.listTools()
         expect.fail('Should have thrown error')
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).toMatch(/invalid|auth|unauthorized/i)
       }
     })

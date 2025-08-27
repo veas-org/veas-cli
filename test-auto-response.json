@@ -1,0 +1,15 @@
+{
+  "name": "Test Auto-Response",
+  "task_type": "single",
+  "configuration": {
+    "command": "echo 'Waiting for input:' && read input && echo \"You said: $input\"",
+    "interactive": true,
+    "autoResponses": [
+      {
+        "delay": 2000,
+        "input": "Hello from auto-response!\n",
+        "trigger": null
+      }
+    ]
+  }
+}

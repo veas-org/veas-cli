@@ -1,0 +1,175 @@
+{
+  "name": "Claude Development Assistant Workflow",
+  "description": "An automated workflow that uses Claude for various development tasks",
+  "task_type": "workflow",
+  "organization_id": "your-org-id",
+  "configuration": {
+    "execution_mode": "sequential",
+    "stop_on_failure": false,
+    "workflow": [
+      {
+        "step": 1,
+        "name": "Code Review with Claude",
+        "description": "Have Claude review recent code changes",
+        "command": "claude",
+        "interactive": true,
+        "autoResponses": [
+          {
+            "trigger": "How can I help you today",
+            "input": "Please review this code for best practices and potential issues:\n\n```javascript\nfunction processData(users) {\n  let result = [];\n  for (var i = 0; i < users.length; i++) {\n    if (users[i].age > 18) {\n      result.push(users[i].name);\n    }\n  }\n  return result;\n}\n```\n",
+            "delay": 1000
+          },
+          {
+            "trigger": "Would you like me to|Should I also",
+            "input": "yes, please explain the improvements\n",
+            "delay": 2000
+          },
+          {
+            "trigger": "Is there anything else|Would you like to",
+            "input": "no, that's all for the review\n",
+            "delay": 3000,
+            "closeAfter": true
+          },
+          {
+            "comment": "Fallback: send continue if Claude pauses mid-response",
+            "delay": 15000,
+            "input": "continue\n"
+          }
+        ]
+      },
+      {
+        "step": 2,
+        "name": "Generate Unit Tests",
+        "description": "Ask Claude to generate unit tests for a function",
+        "command": "claude",
+        "interactive": true,
+        "autoResponses": [
+          {
+            "trigger": "How can I help",
+            "input": "Generate comprehensive unit tests for this function using Jest:\n\n```javascript\nfunction calculateDiscount(price, customerType, quantity) {\n  let discount = 0;\n  \n  if (customerType === 'premium') {\n    discount = 0.2;\n  } else if (customerType === 'regular' && quantity > 10) {\n    discount = 0.1;\n  }\n  \n  if (quantity > 50) {\n    discount += 0.05;\n  }\n  \n  return price * (1 - discount);\n}\n```\n",
+            "delay": 1000
+          },
+          {
+            "trigger": "Would you like|Should I include",
+            "input": "yes, include edge cases and error scenarios\n",
+            "delay": 2000
+          },
+          {
+            "trigger": "complete|finished|Is there anything else",
+            "input": "Great, thank you. Exit\n",
+            "delay": 2000,
+            "closeAfter": true
+          },
+          {
+            "delay": 20000,
+            "input": "continue\n"
+          }
+        ]
+      },
+      {
+        "step": 3,
+        "name": "Documentation Generation",
+        "description": "Generate API documentation with Claude",
+        "command": "claude",
+        "interactive": true,
+        "autoResponses": [
+          {
+            "trigger": "How can I help|What would you like",
+            "input": "Create comprehensive API documentation in OpenAPI 3.0 format for these endpoints:\n\n1. POST /api/users - Create new user\n2. GET /api/users/:id - Get user by ID\n3. PUT /api/users/:id - Update user\n4. DELETE /api/users/:id - Delete user\n5. GET /api/users - List all users with pagination\n\nInclude request/response schemas, error codes, and authentication requirements.\n",
+            "delay": 1000
+          },
+          {
+            "trigger": "Would you like me to include|Should I add",
+            "input": "yes, include example requests and responses\n",
+            "delay": 2000
+          },
+          {
+            "trigger": "Is that helpful|Is there anything else|documentation complete",
+            "input": "Perfect, that's exactly what I needed. Exit\n",
+            "delay": 3000,
+            "closeAfter": true
+          },
+          {
+            "delay": 25000,
+            "input": "continue\n"
+          }
+        ]
+      },
+      {
+        "step": 4,
+        "name": "SQL Query Optimization",
+        "description": "Get help optimizing a complex SQL query",
+        "command": "claude",
+        "interactive": true,
+        "autoResponses": [
+          {
+            "trigger": "How can I help|What.*assist",
+            "input": "Please optimize this SQL query for better performance:\n\n```sql\nSELECT \n  u.name,\n  u.email,\n  COUNT(o.id) as order_count,\n  SUM(o.total) as total_spent\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nWHERE u.created_at > '2024-01-01'\n  AND o.status = 'completed'\nGROUP BY u.id, u.name, u.email\nHAVING COUNT(o.id) > 5\nORDER BY total_spent DESC;\n```\n\nThe tables have millions of records. What indexes and query improvements would you suggest?\n",
+            "delay": 1000
+          },
+          {
+            "trigger": "Would you like|Should I also|explain",
+            "input": "yes, explain why each optimization helps\n",
+            "delay": 2000
+          },
+          {
+            "trigger": "implementation|apply these|Is there anything else",
+            "input": "Thank you for the detailed optimization advice. Exit\n",
+            "delay": 3000,
+            "closeAfter": true
+          },
+          {
+            "delay": 20000,
+            "input": "continue\n"
+          }
+        ]
+      },
+      {
+        "step": 5,
+        "name": "Architecture Review",
+        "description": "Discuss system architecture with Claude",
+        "command": "claude",
+        "interactive": true,
+        "autoResponses": [
+          {
+            "trigger": "How can I help|What.*today",
+            "input": "I need advice on microservices architecture. We have a monolithic Node.js application with:\n- User management\n- Order processing\n- Inventory management\n- Payment processing\n- Notification system\n\nWe're serving 100k daily active users. Should we split into microservices? If yes, how would you recommend structuring them?\n",
+            "delay": 1000
+          },
+          {
+            "trigger": "Would you like me to elaborate|Should I provide more detail",
+            "input": "yes, please include communication patterns between services\n",
+            "delay": 3000
+          },
+          {
+            "trigger": "Would you like.*specific|questions about.*implementation",
+            "input": "What about data consistency across services?\n",
+            "delay": 15000
+          },
+          {
+            "trigger": "Is there anything else|Does this help",
+            "input": "Very helpful, thank you! Exit\n",
+            "delay": 3000,
+            "closeAfter": true
+          },
+          {
+            "delay": 30000,
+            "input": "continue\n"
+          }
+        ]
+      }
+    ]
+  },
+  "parameters": {
+    "timeout_per_step": 120000,
+    "capture_output": true,
+    "save_responses": true,
+    "output_directory": "./claude-outputs"
+  },
+  "tags": ["development", "claude", "automation", "code-review", "documentation"],
+  "schedule": {
+    "enabled": false,
+    "cron": "0 9 * * 1",
+    "description": "Run every Monday at 9 AM for weekly code review"
+  }
+}

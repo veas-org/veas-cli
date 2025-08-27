@@ -37,7 +37,6 @@ export async function login(options?: { method?: 'password' | 'web' | 'token' })
       case 'token':
         await loginWithToken(authManager)
         break
-      case 'password':
       default:
         await loginWithPassword(authManager)
         break

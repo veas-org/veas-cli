@@ -29,7 +29,7 @@ describe('AuthManager', () => {
     email: 'test@example.com',
   }
 
-  const mockSession = {
+  const _mockSession = {
     user: mockUser,
     token: 'test-token',
     refreshToken: 'refresh-token',

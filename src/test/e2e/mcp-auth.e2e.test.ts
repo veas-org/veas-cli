@@ -38,7 +38,7 @@ describe.skip('MCP Authentication E2E Tests', () => {
         const tools = await client.listTools()
         expect(tools).toBeDefined()
         expect(Array.isArray(tools)).toBe(true)
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Expected to fail with invalid token
         expect(error.message).toContain('Invalid or expired token')
       }
@@ -121,7 +121,7 @@ describe.skip('MCP Authentication E2E Tests', () => {
       expect(token).toBe('tes_pat-user')
 
       // Clean up
-      delete process.env.VEAS_PAT
+      process.env.VEAS_PAT = undefined
     })
 
     it('should use MCP_TOKEN when set', async () => {
@@ -136,7 +136,7 @@ describe.skip('MCP Authentication E2E Tests', () => {
       expect(token).toBe('tes_mcp-token')
 
       // Clean up
-      delete process.env.MCP_TOKEN
+      process.env.MCP_TOKEN = undefined
     })
   })
 

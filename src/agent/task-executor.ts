@@ -5,9 +5,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { MCPClient } from '../mcp/mcp-client.js'
+import type { MCPClient } from '../mcp/mcp-client.js'
 import { logger } from '../utils/logger.js'
-import { RealtimeService } from './realtime-service.js'
+import type { RealtimeService } from './realtime-service.js'
 import type { Task, TaskExecution, ToolCall, WorkflowStep } from './types.js'
 
 export class TaskExecutor {
@@ -88,15 +88,15 @@ export class TaskExecutor {
       })
 
       logger.info(`Task ${execution.id} completed successfully`)
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`Task ${execution.id} failed:`, error)
 
       // Update execution with failure
       await this.realtimeService.updateExecutionStatus(execution.id, 'failed', {
-        errorMessage: error.message,
+        errorMessage: error instanceof Error ? error.message : String(error),
         errorDetails: {
-          stack: error.stack,
-          code: error.code,
+          stack: error instanceof Error ? error.stack : undefined,
+          code: error instanceof Error ? (error as any).code : undefined,
         },
         completedAt: new Date().toISOString(),
         durationMs: Date.now() - new Date(execution.startedAt || execution.queuedAt).getTime(),
@@ -104,7 +104,7 @@ export class TaskExecutor {
 
       // Log execution failure
       await this.realtimeService.addExecutionLog(execution.id, 'error', 'Task execution failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       })
     } finally {
       this.activeExecutions.delete(execution.id)
@@ -135,7 +135,7 @@ export class TaskExecutor {
    */
   private async executeTaskWorkflow(execution: TaskExecution, task: Task): Promise<any> {
     const workflow = task.workflow || []
-    const context: Record<string, any> = {
+    const context: Record<string, unknown> = {
       ...execution.inputParams,
       executionId: execution.id,
       taskId: task.id,
@@ -169,12 +169,12 @@ export class TaskExecutor {
           if (nextStepIndex >= 0) {
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error(`Workflow step ${step.name} failed:`, error)
 
         // Log step failure
         await this.realtimeService.addExecutionLog(execution.id, 'error', `Workflow step failed: ${step.name}`, {
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         })
 
         // Handle step failure
@@ -211,7 +211,7 @@ export class TaskExecutor {
   private async executeWorkflowStep(
     execution: TaskExecution,
     step: WorkflowStep,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
   ): Promise<any> {
     switch (step.type) {
       case 'tool':
@@ -240,7 +240,7 @@ export class TaskExecutor {
   private async executeToolStep(
     execution: TaskExecution,
     step: WorkflowStep,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
   ): Promise<any> {
     if (!step.tool) {
       throw new Error('Tool step missing tool name')
@@ -269,11 +269,11 @@ export class TaskExecutor {
       await this.recordToolCall(execution.id, toolCall)
 
       return result
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Update tool call with error
       toolCall.completedAt = new Date().toISOString()
       toolCall.durationMs = Date.now() - new Date(toolCall.startedAt).getTime()
-      toolCall.error = error.message
+      toolCall.error = error instanceof Error ? error.message : String(error)
 
       // Save tool call to execution
       await this.recordToolCall(execution.id, toolCall)
@@ -285,7 +285,7 @@ export class TaskExecutor {
   /**
    * Execute a condition step
    */
-  private async executeConditionStep(step: WorkflowStep, context: Record<string, any>): Promise<boolean> {
+  private async executeConditionStep(step: WorkflowStep, context: Record<string, unknown>): Promise<boolean> {
     if (!step.condition) {
       throw new Error('Condition step missing condition')
     }
@@ -298,7 +298,7 @@ export class TaskExecutor {
       try {
         const func = new Function('context', `return ${expression}`)
         return func(context)
-      } catch (error) {
+      } catch (_error) {
         throw new Error(`Invalid condition expression: ${expression}`)
       }
     } else if (type === 'comparison') {
@@ -340,7 +340,7 @@ export class TaskExecutor {
   private async executeLoopStep(
     _execution: TaskExecution,
     _step: WorkflowStep,
-    _context: Record<string, any>,
+    _context: Record<string, unknown>,
   ): Promise<any[]> {
     // TODO: Implement loop execution
     logger.warn('Loop steps not yet implemented')
@@ -353,7 +353,7 @@ export class TaskExecutor {
   private async executeParallelStep(
     _execution: TaskExecution,
     _step: WorkflowStep,
-    _context: Record<string, any>,
+    _context: Record<string, unknown>,
   ): Promise<any[]> {
     // TODO: Implement parallel execution
     logger.warn('Parallel steps not yet implemented')
@@ -363,7 +363,7 @@ export class TaskExecutor {
   /**
    * Execute a transform step
    */
-  private async executeTransformStep(step: WorkflowStep, context: Record<string, any>): Promise<any> {
+  private async executeTransformStep(step: WorkflowStep, context: Record<string, unknown>): Promise<any> {
     const params = this.resolveParams(step.params || {}, context)
 
     // Simple JSON transformation
@@ -374,8 +374,8 @@ export class TaskExecutor {
   /**
    * Resolve parameters with context values
    */
-  private resolveParams(params: Record<string, any>, context: Record<string, any>): Record<string, any> {
-    const resolved: Record<string, any> = {}
+  private resolveParams(params: Record<string, unknown>, context: Record<string, unknown>): Record<string, unknown> {
+    const resolved: Record<string, unknown> = {}
 
     for (const [key, value] of Object.entries(params)) {
       resolved[key] = this.resolveValue(value, context)
@@ -387,7 +387,7 @@ export class TaskExecutor {
   /**
    * Resolve a value with context
    */
-  private resolveValue(value: any, context: Record<string, any>): any {
+  private resolveValue(value: any, context: Record<string, unknown>): any {
     if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
       // Template variable: {{variable}}
       const varName = value.slice(2, -2).trim()
@@ -397,7 +397,7 @@ export class TaskExecutor {
       if (Array.isArray(value)) {
         return value.map(v => this.resolveValue(v, context))
       } else {
-        const resolved: Record<string, any> = {}
+        const resolved: Record<string, unknown> = {}
         for (const [k, v] of Object.entries(value)) {
           resolved[k] = this.resolveValue(v, context)
         }
